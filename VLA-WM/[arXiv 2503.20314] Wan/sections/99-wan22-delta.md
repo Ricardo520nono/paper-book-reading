@@ -1,0 +1,215 @@
+[← 返回论文 README](../README.md)
+
+# 99 · Wan 2.2 增量补丁（vs Wan 2.1）
+
+> **为什么这一节独立成文**：Wan 2.2 没有独立 arXiv 论文，它在 [Wan-Video/Wan2.2 GitHub README](https://github.com/Wan-Video/Wan2.2) 的 Citation 块里引用的就是这篇 2503.20314（即 Wan 论文）。所以"Wan 2.2 的新东西"全部记录在它的 GitHub README 的 *Introduction of Wan2.2* 那一节，本文档对这一节做批读。
+
+---
+
+## 📌 一图速看：Wan 2.1 → Wan 2.2 改了什么
+
+```
+Wan 2.1                              Wan 2.2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+单一 dense backbone                   ✅ MoE：双专家（high-noise + low-noise）
+                                       ↳ 27B 总参，每步只激活 14B
+                                       ↳ 按 SNR 阈值切换专家
+─────────────────────────────────────────────────────────────────
+1.3B / 14B 两档                       ✅ A14B 系列(MoE) + TI2V-5B(Dense, 新)
+                                       + S2V-14B (音频驱动, 新模型)
+                                       + Animate-14B (角色动画, 新模型)
+─────────────────────────────────────────────────────────────────
+Wan-VAE: 4×8×8                       ✅ Wan2.2-VAE: 4×16×16 (压缩率 64)
+                                       ↳ 配合 patchify 总压缩 4×32×32
+─────────────────────────────────────────────────────────────────
+通用视觉数据                         ✅ 数据 +65.6% 图像 / +83.2% 视频
+                                       + 美学标注（光线/构图/对比/色调）
+─────────────────────────────────────────────────────────────────
+8 个下游任务                          ✅ 同上，但 5B 模型一个就支持 T2V+I2V
+─────────────────────────────────────────────────────────────────
+```
+
+---
+
+## 📄 原文 + 批注
+
+> 来源：[Wan-Video/Wan2.2 GitHub README — *Introduction of Wan2.2* 节](https://github.com/Wan-Video/Wan2.2#introduction-of-wan22)
+
+### 总纲
+
+> "Wan2.2 builds on the foundation of Wan2.1 with notable improvements in generation quality and model capability. This upgrade is driven by a series of key technical innovations, mainly including the Mixture-of-Experts (MoE) architecture, upgraded training data, and high-compression video generation."
+
+💡 **3 个改进的相对重要性**：
+- **MoE 架构** ⭐⭐⭐：架构层面的根本性改动，是 Wan 2.2 之所以叫 2.2 而不是 2.1.x 的核心理由
+- **数据规模 + 美学标注** ⭐⭐：训练侧的工程改动，决定了能力上限
+- **高压缩 5B 模型** ⭐⭐：让 Wan 真正进入消费级 GPU 时代（4090 也能跑），扩大了使用人群
+
+⚠️ **不要混淆"模型架构"和"模型能力"**：MoE 是结构层面的（怎么组织参数），数据/美学是训练层面的（喂什么），高压缩是 efficiency 层面的（推理多快）。组会上如果被问"2.2 主要改了什么"，按这三个层面回答最稳。
+
+---
+
+### (1) Mixture-of-Experts (MoE) Architecture
+
+> "Wan2.2 introduces Mixture-of-Experts (MoE) architecture into the video generation diffusion model. MoE has been widely validated in large language models as an efficient approach to increase total model parameters while keeping inference cost nearly unchanged."
+
+💡 **类比理解**：
+- 在 LLM 里，MoE（如 Mixtral、DeepSeek-V3）是"很多个小专家共享一套门控网络，每次前向只激活几个"
+- 在 Wan 2.2 里，MoE 用得**完全不一样** —— 不是"按 token 路由"，而是"**按扩散时间步路由**"
+- 核心想法：**扩散过程的不同阶段需要不同的能力**，所以让不同阶段用不同的专家，每个专家专门解决自己阶段的事
+
+> "In Wan2.2, the A14B model series adopts a two-expert design tailored to the denoising process of diffusion models: a high-noise expert for the early stages, focusing on overall layout; and a low-noise expert for the later stages, refining video details."
+
+💡 **为什么要分两个专家？**
+- 扩散模型的 denoise 过程是从纯噪声 → 干净视频
+- 早期（高噪声）：模型只能"看到"模糊轮廓，主要任务是确定**整体布局**（场景、运动趋势、人物位置）
+- 晚期（低噪声）：模型能"看到"清晰细节，主要任务是**精修细节**（纹理、面部、小物体）
+- 这两个任务的难度和所需能力不一样 —— 用同一套参数硬干，相当于让一个人既画草稿又画工笔，势必有取舍。**Wan 2.2 给草稿和工笔各配一个专精的人。**
+
+> "Each expert model has about 14B parameters, resulting in a total of 27B parameters but only 14B active parameters per step, keeping inference computation and GPU memory nearly unchanged."
+
+💡 **为什么是 27B 不是 28B？** 因为两个专家**共享一部分参数**（embedding、conditioning 等），只有 DiT 主体是各自一份，所以是 ~14B + ~13B = 27B 而不是 28B。
+
+⚠️ **关键 quiz 点**：MoE 让总参数从 14B → 27B（容量翻倍），但**每步只激活 14B**（计算量不变）。这就是 MoE 的精髓 —— 用稀疏激活换容量提升。
+
+> "The transition point between the two experts is determined by the signal-to-noise ratio (SNR), a metric that decreases monotonically as the denoising step *t* increases. At the beginning of the denoising process, *t* is large and the noise level is high, so the SNR is at its minimum, denoted as SNR_min. In this stage, the high-noise expert is activated. We define a threshold step t_moe corresponding to half of the SNR_min, and switch to the low-noise expert when t < t_moe."
+
+💡 **专家切换规则用一句话讲**：
+- 切换点 = SNR 降到 `SNR_min / 2` 的那个步数
+- 步数大、SNR 小 → high-noise expert 上场
+- 步数小、SNR 大 → low-noise expert 上场
+
+```
+denoise step t:    [大 → 小]
+SNR:                [小 → 大]
+                    ─────────●──────────
+                              ↑
+                          t_moe (SNR = SNR_min/2)
+                              │
+                  high-noise  │  low-noise
+                  expert      │  expert
+                  (布局)      │  (细节)
+```
+
+> "To validate the effectiveness of the MoE architecture, four settings are compared based on their validation loss curves... The Wan2.2 (MoE) (our final version) achieves the lowest validation loss, indicating that its generated video distribution is closest to ground-truth and exhibits superior convergence."
+
+💡 **消融实验设计很妙**：
+- 完整 Wan 2.1 (无 MoE) — baseline
+- Wan2.1 backbone + Wan2.2 high-noise expert — 只换前半段
+- Wan2.1 backbone + Wan2.2 low-noise expert — 只换后半段
+- 完整 Wan 2.2 MoE — 两个专家都用 2.2
+
+通过这个对比能拆出："是不是只换一个专家就够好？" 答案：不行，**两个专家协同才是最优的**。这论证了"早晚阶段用不同的专精模型"这个设计本身的合理性。
+
+---
+
+### (2) Cinematic-level Aesthetics（电影级美学）
+
+> "Wan2.2 incorporates meticulously curated aesthetic data, complete with detailed labels for lighting, composition, contrast, color tone, and more. This allows for more precise and controllable cinematic style generation, facilitating the creation of videos with customizable aesthetic preferences."
+
+💡 **这是数据侧的改进，不是架构改进**：Wan 2.2 在训练数据里多了一类"美学标注数据" —— 每段视频额外标注了打光（硬光/柔光/逆光）、构图（中心/对角/对称）、对比度、色调（冷/暖/复古）等维度。
+
+💡 **效果**：你给 prompt 时可以直接说"温暖电影色调，逆光，中心构图"，模型能听懂并照做。Wan 2.1 没有这种细粒度美学控制，**这是 Wan 2.2 视觉效果"更电影感"的直接来源**。
+
+---
+
+### (3) 数据规模升级
+
+> "Compared to Wan2.1, Wan2.2 is trained on a significantly larger data, with +65.6% more images and +83.2% more videos."
+
+💡 这是工程数字，记住就行：
+- 图像 +65.6%
+- 视频 +83.2%
+
+💡 **Why this matters**：视频比图像增长更猛（+83.2% vs +65.6%），符合"加大视频专用数据投入"的方向。直接收益是动作多样性、复杂运动场景的处理能力。
+
+---
+
+### (4) 高效高清 Hybrid TI2V（5B 模型 + 新 VAE）
+
+> "To enable more efficient deployment, Wan2.2 also explores a high-compression design. In addition to the 27B MoE models, a 5B dense model, i.e., TI2V-5B, is released. It is supported by a high-compression Wan2.2-VAE, which achieves a T×H×W compression ratio of 4×16×16, increasing the overall compression rate to 64 while maintaining high-quality video reconstruction."
+
+💡 **TI2V-5B 是 Wan 2.2 的"消费级旗舰"**：
+- 名字解读：**T**ext + **I**mage **to** **V**ideo —— 一个模型同时支持 T2V 和 I2V，不用换 checkpoint
+- 5B Dense（不是 MoE！）—— 设计哲学和 A14B 系列完全不同
+- 配套的 Wan2.2-VAE 把压缩比从 Wan 2.1 的 4×8×8（=256）拉到 4×16×16（=1024，整体 ×64）
+
+⚠️ **常见误解**：很多人以为 TI2V-5B 是"小一点的 MoE 模型" —— **不是！** 它是 Dense 模型，纯粹靠 VAE 压缩比换效率。
+
+> "With an additional patchification layer, the total compression ratio of TI2V-5B reaches 4×32×32. Without specific optimization, TI2V-5B can generate a 5-second 720P video in under 9 minutes on a single consumer-grade GPU, ranking among the fastest 720P@24fps video generation models. This model also natively supports both text-to-video and image-to-video tasks within a single unified framework, covering both academic research and practical applications."
+
+💡 **Patchify 后总压缩**：4×32×32（含 patch 后）—— 意思是模型实际处理的 latent token 数量比 Wan 2.1 少了 ×16 倍（空间维度）。这就是它为什么能在 4090 上跑动的根本原因。
+
+💡 **5 秒 720P < 9 分钟 on 单卡消费级 GPU** —— 这个数字翔哥可能会问，记一下。
+
+---
+
+## 💡 核心信息速查
+
+### Wan 2.1 vs Wan 2.2 对照表（answer to Q1）
+
+| 维度 | Wan 2.1 | Wan 2.2 |
+|---|---|---|
+| **核心架构** | Dense DiT | **MoE 双专家**（high-noise + low-noise）按 SNR 切换 |
+| **参数规模** | 1.3B / 14B | A14B (27B 总, 14B 激活) + TI2V-5B Dense |
+| **VAE** | Wan-VAE 4×8×8 | **Wan2.2-VAE 4×16×16**（压缩率 ×4） |
+| **训练数据** | baseline | +65.6% 图像 / +83.2% 视频 |
+| **美学控制** | 无细粒度 | ✅ 光线/构图/对比/色调标注 |
+| **消费级支持** | 1.3B 需 8.19GB VRAM | ✅ TI2V-5B 在 4090 上跑 720P@24fps |
+| **新模型谱系** | T2V / I2V | + **S2V**（音频驱动）+ **Animate**（角色动画） |
+
+### Wan 2.2 模型谱系全览
+
+| 模型 | 类型 | 参数 | 任务 | 分辨率 | VRAM |
+|---|---|---|---|---|---|
+| **T2V-A14B** | MoE | 27B/14B 激活 | Text → Video | 480P + 720P | ≥80GB |
+| **I2V-A14B** | MoE | 27B/14B 激活 | Image → Video | 480P + 720P | ≥80GB |
+| **TI2V-5B** | Dense | 5B | Text/Image → Video（统一） | 720P@24fps | ≥24GB（4090） |
+| **S2V-14B** | Dense | 14B | Speech + Image → Video | 480P + 720P | ≥80GB |
+| **Animate-14B** | Dense | 14B | 角色动画 / 替换 | 1280×720 | ≥80GB |
+
+### TI2V-5B vs I2V-A14B 关键区别（answer to Q2）
+
+| 对比维度 | TI2V-5B | I2V-A14B |
+|---|---|---|
+| **架构类型** | Dense | **MoE**（双专家） |
+| **总参数 / 激活参数** | 5B / 5B（全激活） | 27B / **14B 激活** |
+| **VAE** | **Wan2.2-VAE 4×16×16**（高压缩） | Wan-VAE 4×8×8（标准） |
+| **支持任务** | **T2V + I2V 统一**（一个 ckpt 都能干） | I2V only（需要图像输入） |
+| **支持分辨率** | 720P@24fps | 480P + 720P |
+| **VRAM 门槛** | **24GB**（4090 可跑） | **80GB**（A100/H100 级别） |
+| **生成 5s 720P 视频耗时** | < 9 分钟（单卡 4090） | 更慢（需多卡 FSDP+Ulysses 才划算） |
+| **质量天花板** | 中等（5B 上限） | **更高**（27B 容量） |
+| **典型场景** | 个人 / 学术研究 / 快速迭代 | 工业级 / 商业部署 / 最高质量 |
+
+⚠️ **关键 takeaway**：**TI2V-5B 用"高压缩 VAE + 小模型 + 统一框架"换可用性；I2V-A14B 用"MoE 架构 + 大模型"换质量上限**。两者不是替代关系，是不同 segment。
+
+---
+
+## 💡 核心洞察
+
+1. **MoE 在 diffusion 里的用法和 LLM 不一样**：LLM 的 MoE 按 token 路由（同一时刻不同 token 走不同专家），diffusion 的 MoE 按时间步路由（同一 token 在不同 step 走不同专家）。这是个**很巧妙的迁移**。
+
+2. **Wan 2.2 走"双产品线"策略**：A14B 追求质量天花板，5B 追求可用性下限。这意味着 Alibaba 既要做工业级供给（云端推理），又要让开源社区/学术界有得玩。这是开源策略，不是单纯的技术选择。
+
+3. **VAE 是 Wan 2.2 隐藏的英雄**：从 4×8×8 升到 4×16×16，让 5B 模型能在 4090 上跑 720P。如果只换 VAE 不动 backbone，已经是巨大的工程胜利。
+
+4. **没有独立 arXiv 论文是个有意思的信号**：说明 Wan 2.2 的 Alibaba 团队选择了"工程化 release"而非"学术化 publish"——直接发模型权重 + GitHub 文档，这是大厂技术报告的趋势。
+
+---
+
+## 🤔 我的 Follow-up 问题
+
+1. SNR_min/2 这个切换点是怎么调的？是消融实验扫出来的，还是有理论依据？
+2. high-noise expert 和 low-noise expert 是从同一个 backbone 微调而来，还是各自从头训？
+3. TI2V-5B 的 Wan2.2-VAE 压缩比那么高，长视频会不会因为 VAE 重建误差累积失真？
+4. 在 RoboTwin 仿真上做 I2V 推理时，我用的是 I2V-A14B 还是 TI2V-5B？为什么我们组选这个？（**这个明天得搞清楚**）
+
+---
+
+## 🔥 拷打记录
+
+_(待填充 — Claude 会在这一节问我 3~4 个问题，我用自己的话回答，然后把 Q&A 整理回来)_
+
+---
+
+[← 返回论文 README](../README.md)
