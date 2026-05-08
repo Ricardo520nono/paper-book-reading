@@ -49,6 +49,16 @@ Ricardo 的论文 + 读书笔记仓库。每篇内容采用「批读 + 拷打」
 | `🔥` | 拷打 Q&A：Claude 的提问 + 我的回答 + 总结 |
 | `⚠️` | 容易搞混 / 容易踩的坑 |
 
+### 图片硬性约定（重要）
+
+**只要批读里提到了 Figure / Table，就必须把图本身嵌到 markdown 里**，不能光用文字描述。
+
+工作流：
+1. 用 `pdftoppm` 把 PDF 渲染成 PNG（每页一张）
+2. 用 PIL 裁剪到具体 Figure 的区域
+3. 保存到该论文的 `images/` 目录，命名 `figure-NN.png` / `table-NN.png`
+4. markdown 里用 `![](../images/figure-NN.png)` 嵌入
+
 ---
 
 由 Ricardo + Claude 协作整理 🤝

@@ -144,7 +144,9 @@ Pixel-space Diffusion (传统)         Latent Diffusion + DiT (主流)
 
 ### Figure 1 · 性能对比图
 
-> Figure 1: Comparison of Wan with state-of-the-art open-source and closed-source models. Following both benchmark and human evaluations, Wan consistently demonstrated superior results.
+![Figure 1: Wan vs SOTA open-source and closed-source models](../images/figure-01.png)
+
+> Figure 1: Comparison of Wan with state-of-the-art open-source and closed-source models. Following both benchmark and human evaluations, Wan consistently demonstrated superior results. Note that HunyuanVideo (Kong et al. 2024) is tested using the open-source model.
 
 💡 **图表怎么读**：
 
