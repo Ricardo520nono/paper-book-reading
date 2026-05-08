@@ -26,20 +26,24 @@ Wan 是阿里通义实验室的全开源视频生成基座，提供 1.3B（消�
 
 ---
 
-## 📖 批读导航 + 推荐阅读顺序
+## 📖 批读导航（按论文章节顺序）
 
-我的实际阅读路径（不严格按论文顺序，按"明天能答上来"的优先级）：
+按部就班，慢慢来比较快。每节 4 步循环：批读 → 我读 → 拷打 → Q&A 回写。
 
-| # | Section | 内容 | 优先级 |
-|---|---|---|---|
-| 0 | [00-abstract.md](sections/00-abstract.md) | 摘要：Wan 是什么，4 个 key features | 🔥 必读 |
-| 1 | [01-introduction.md](sections/01-introduction.md) | Wan 的定位、贡献清单 | 🔥 必读 |
-| 99 | [99-wan22-delta.md](sections/99-wan22-delta.md) | **Wan 2.2 vs 2.1 增量**（直接答 Q1） | 🔥 必读 |
-| 4.1 | [04-method-vae.md](sections/04-method-vae.md) | 时空 VAE 架构 | ⭐ 重点 |
-| 4.2 | [04-method-dit.md](sections/04-method-dit.md) | DiT 视频扩散模型 + 训练 | ⭐ 重点 |
-| 5.1 | [05-i2v.md](sections/05-i2v.md) | **Image-to-Video（直接答 Q2）** | ⭐ 重点 |
-| 4.3-4.4 | [04-scaling-inference.md](sections/04-scaling-inference.md) | 训练效率 / 推理优化 | 选读 |
-| 5.2-5.7 | [05-other-applications.md](sections/05-other-applications.md) | 视频编辑 / T2I / 个性化 / 相机 / 实时 / 音频 | 选读 |
+| # | Section | 内容 | 重要性 | 状态 |
+|---|---|---|---|---|
+| 0 | [00-abstract.md](sections/00-abstract.md) | 摘要：Wan 是什么，4 个 key features | 🔥 必读 | 🟡 已批读，待拷打 |
+| 1 | [01-introduction.md](sections/01-introduction.md) | Wan 的定位、贡献清单 | 🔥 必读 | ⏳ 待写 |
+| 2 | [02-related-work.md](sections/02-related-work.md) | T2V/I2V 相关工作 | 选读 | ⏳ 待写 |
+| 3 | [03-data-pipeline.md](sections/03-data-pipeline.md) | 数据策划、密集 caption | ⭐ 重点 | ⏳ 待写 |
+| 4.1 | [04-method-vae.md](sections/04-method-vae.md) | 时空 VAE 架构 | 🔥 必读 | ⏳ 待写 |
+| 4.2 | [04-method-dit.md](sections/04-method-dit.md) | DiT 视频扩散模型 + 训练 | 🔥 必读 | ⏳ 待写 |
+| 4.3-4.4 | [04-scaling-inference.md](sections/04-scaling-inference.md) | 训练效率 / 推理优化 | ⭐ 重点 | ⏳ 待写 |
+| 4.5-4.7 | [04-prompt-eval.md](sections/04-prompt-eval.md) | Prompt 对齐 / 评测 | 选读 | ⏳ 待写 |
+| 5.1 | [05-i2v.md](sections/05-i2v.md) | Image-to-Video（贴近你的使用场景） | 🔥 必读 | ⏳ 待写 |
+| 5.2-5.7 | [05-other-applications.md](sections/05-other-applications.md) | 视频编辑 / T2I / 个性化 / 相机 / 实时 / 音频 | 选读 | ⏳ 待写 |
+| 6 | [06-conclusion.md](sections/06-conclusion.md) | 局限与结论 | ⭐ 重点 | ⏳ 待写 |
+| **99** | [99-wan22-delta.md](sections/99-wan22-delta.md) | **Wan 2.2 vs 2.1 增量**（提前写好的延伸） | 🔥 必读 | 🟡 已批读，等读到时再拷打 |
 
 ---
 
