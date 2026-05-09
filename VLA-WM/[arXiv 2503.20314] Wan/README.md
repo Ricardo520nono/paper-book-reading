@@ -32,8 +32,8 @@ Wan 是阿里通义实验室的全开源视频生成基座，提供 1.3B（消�
 
 | # | Section | 内容 | 重要性 | 状态 |
 |---|---|---|---|---|
-| 0 | [00-abstract.md](sections/00-abstract.md) | 摘要：Wan 是什么，4 个 key features | 🔥 必读 | 🟡 已批读，待拷打 |
-| 1 | [01-introduction.md](sections/01-introduction.md) | Wan 的定位、贡献清单 | 🔥 必读 | ⏳ 待写 |
+| 0 | [00-abstract.md](sections/00-abstract.md) | 摘要：Wan 是什么，4 个 key features | 🔥 必读 | ✅ 已完成（Round 1 拷打 done） |
+| 1 | [01-introduction.md](sections/01-introduction.md) | 三大 Gap + Wan 解法 + 双尺寸 + Openness | 🔥 必读 | 🟡 已批读，待拷打 |
 | 2 | [02-related-work.md](sections/02-related-work.md) | T2V/I2V 相关工作 | 选读 | ⏳ 待写 |
 | 3 | [03-data-pipeline.md](sections/03-data-pipeline.md) | 数据策划、密集 caption | ⭐ 重点 | ⏳ 待写 |
 | 4.1 | [04-method-vae.md](sections/04-method-vae.md) | 时空 VAE 架构 | 🔥 必读 | ⏳ 待写 |
