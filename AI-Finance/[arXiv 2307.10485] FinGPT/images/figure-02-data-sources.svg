@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 540" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <defs>
+    <linearGradient id="hdr" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f3f4f6"/><stop offset="100%" stop-color="#e5e7eb"/>
+    </linearGradient>
+  </defs>
+
+  <text x="450" y="28" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">Figure 2 · FinGPT 的 34 个金融数据源（Claude 重绘）</text>
+  <text x="450" y="50" text-anchor="middle" font-size="13" fill="#6b7280">19 News + 8 Social Media + 3 Filings + 4 Research Datasets</text>
+
+  <!-- News block -->
+  <rect x="40" y="80" width="500" height="220" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <rect x="40" y="80" width="500" height="36" rx="14" fill="url(#hdr)" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="60" y="103" font-size="14" font-weight="700" fill="#1e40af">📰 News（19 sources）</text>
+  <g font-size="11" fill="#1e40af">
+    <text x="60" y="138">Yahoo Finance</text><text x="60" y="158">Seeking Alpha</text><text x="60" y="178">Penny Stocks</text>
+    <text x="60" y="198">FinnHub</text><text x="60" y="218">FMP</text><text x="60" y="238">CNBC</text>
+    <text x="60" y="258">The Fly</text>
+    <text x="180" y="138">Reuters</text><text x="180" y="158">Market Watch</text><text x="180" y="178">Alliance News</text>
+    <text x="180" y="198">Guru Focus</text><text x="180" y="218">Investor Place</text><text x="180" y="238">Tip Ranks</text>
+    <text x="180" y="258">Talk Markets</text>
+    <text x="320" y="138" font-style="italic" fill="#dc2626">中文：</text>
+    <text x="320" y="158">Sina（新浪财经）</text><text x="320" y="178">Eastmoney（东方财富）</text>
+    <text x="320" y="198">Yicai（第一财经）</text><text x="320" y="218">CCTV</text>
+    <text x="320" y="238">Tushare</text>
+  </g>
+
+  <!-- Social Media block -->
+  <rect x="560" y="80" width="300" height="220" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <rect x="560" y="80" width="300" height="36" rx="14" fill="url(#hdr)" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="580" y="103" font-size="14" font-weight="700" fill="#166534">💬 Social Media（8 sources）</text>
+  <g font-size="11" fill="#166534">
+    <text x="580" y="138">Twitter</text>
+    <text x="580" y="158">Facebook</text>
+    <text x="580" y="178">StockTwits</text>
+    <text x="580" y="198">Reddit</text>
+    <text x="720" y="138" font-style="italic" fill="#dc2626">中文：</text>
+    <text x="720" y="158">Eastmoney（股吧）</text>
+    <text x="720" y="178">Weibo（微博）</text>
+    <text x="720" y="198">Xueqiu（雪球）</text>
+  </g>
+  <text x="580" y="240" font-size="10" fill="#6b7280">⚠️ 注：「Eastmoney」既出现在 News 也出现在</text>
+  <text x="580" y="255" font-size="10" fill="#6b7280">Social — 因为同一公司既有新闻也有股吧社区</text>
+
+  <!-- Filings block -->
+  <rect x="40" y="320" width="380" height="180" rx="14" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <rect x="40" y="320" width="380" height="36" rx="14" fill="url(#hdr)" stroke="#d97706" stroke-width="1.5"/>
+  <text x="60" y="343" font-size="14" font-weight="700" fill="#92400e">📄 Filings（3 sources）</text>
+  <g font-size="12" fill="#92400e">
+    <text x="60" y="378">SEC（美股 EDGAR）</text>
+    <text x="60" y="402">Juchao（巨潮 / A 股公告）</text>
+    <text x="60" y="426">Astock（A 股相关）</text>
+  </g>
+  <text x="60" y="465" font-size="11" fill="#6b7280">公司公告 / 财报 / 内部交易报告 / 招股书</text>
+  <text x="60" y="482" font-size="11" fill="#6b7280">→ 受 license / rate limit 限制最大的一类</text>
+
+  <!-- Research Datasets block -->
+  <rect x="440" y="320" width="420" height="180" rx="14" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <rect x="440" y="320" width="420" height="36" rx="14" fill="url(#hdr)" stroke="#be185d" stroke-width="1.5"/>
+  <text x="460" y="343" font-size="14" font-weight="700" fill="#9d174d">🎓 Research Datasets（4 datasets）</text>
+  <g font-size="12" fill="#9d174d">
+    <text x="460" y="378">FPB · Financial PhraseBank</text>
+    <text x="460" y="402">FiQA SA · 2018 challenge</text>
+    <text x="460" y="426">Stocknet / CHRNN / TTE / Astock</text>
+  </g>
+  <text x="460" y="465" font-size="11" fill="#6b7280">已标注的金融文本，直接 download</text>
+  <text x="460" y="482" font-size="11" fill="#6b7280">→ 用作 fine-tuning 的 ground truth</text>
+
+  <!-- Footer note -->
+  <text x="450" y="525" text-anchor="middle" font-size="11" font-style="italic" fill="#6b7280">论文 Figure 2 caption: "19 news, 8 social media source, 3 filing source, and 4 academic dataset"</text>
+</svg>

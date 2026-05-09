@@ -15,6 +15,14 @@ Ricardo 的论文 + 读书笔记仓库。每篇内容采用「批读 + 拷打」
 |---|---|---|---|
 | [Wan](VLA-WM/%5BarXiv%202503.20314%5D%20Wan/) | arXiv 2503.20314 | 🟡 批读中 | 阿里通义全开源视频生成基座（1.3B / 14B），Wan 系列论文底座 |
 
+### 💹 [AI-Finance](AI-Finance/)（金融与 AI 交叉）
+
+金融大模型（FinLLM） / 量化交易 NLP / 市场情绪分析 / 金融数据工程
+
+| 论文 | 会议 / 来源 | 状态 | 一句话 |
+|---|---|---|---|
+| [FinGPT](AI-Finance/%5BarXiv%202307.10485%5D%20FinGPT/) | arXiv 2307.10485 · NeurIPS 2023 Workshop | 🟡 批读中 | 用 data-centric 开源框架把 FinLLM 训练成本从 267 万美刀压到 262 美刀（34 数据源 + LoRA + RLSP） |
+
 ### 💰 [Wealth-Growth](Wealth-Growth/)（财富增长）
 
 商业模式 / 营销与销售 / 定价与现金流 / 个人财富。**纯读书笔记栏目**，不走拷打流程，详见栏目内 README。
