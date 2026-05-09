@@ -227,7 +227,73 @@ CN-TopA     25%         6%      69%
 
 ## 🔥 拷打记录
 
-_(待填充 — Claude 会在这一节问我 3 个问题，我用自己的话回答，然后把 Q&A 整理回写)_
+### Round 1 · 2026-05-09
+
+#### Q0.1 ｜ 一句话定义题
+
+**问题**：翔哥问"Wan 是个啥？"，15 秒一句话回答，最关键的词不能漏。
+
+**Ricardo 答**：「Wan 是一个视频生成模型，但他并不是一个单一的模型，它是一组套件，类似于 foundational model。」
+
+**评分**：7/10 — 抓住了「套件 ≠ 单一模型」这个最关键的差异。两处可打磨：(1) 它**就是** foundation model，不是"类似于"；(2) 漏说"开源"这个 Abstract 的核心卖点。
+
+**打磨版（记住这句）**：
+> "Wan 是阿里通义实验室的**开源视频生成基础模型套件**，包含 1.3B / 14B 双尺寸 + 8 个下游任务（T2V / I2V / 视频编辑等），用 DiT + 自研时空 VAE 做底座。"
+
+**Take-away**：3 个关键词不能漏 —— **开源**、**基础模型套件**（不是单一模型）、**双尺寸 + 多任务**。
+
+---
+
+#### Q0.2 ｜ Consumer-Grade Efficiency 为什么值得当 key feature？
+
+**问题**：(a) 8.19 GB VRAM 这个数字本质上在说什么？(b) 它为什么值得 Wan 拿出来当 4 大 key features 之一？
+
+**Ricardo 答**：
+- (a) 「消费级显卡能用 → 人人都可以使用」
+- (b) 「不像之前的视频生成模型，要么用不了要么是闭源的，现在是开源的，所以是 key feature。」
+
+**评分**：(a) 9/10；(b) 6/10 — (b) 把 **Consumer-Grade Efficiency** 和 **Openness** 这两个独立的 key features 混成一个了。
+
+**关键修正**：它们解决的是两个不同的"用不了"：
+
+| Feature | 解决的门槛 | 没有它会怎样 |
+|---|---|---|
+| **Openness** | 权限门槛（权重不公开） | 即使硬件再好也下不到模型 |
+| **Consumer-Grade Efficiency** | 硬件门槛（要 80GB A100） | 即使开源了普通人也买不起 |
+
+**关键洞察**：开源 × 低门槛 = **乘法关系**，缺一不可。HunyuanVideo 是开源但要 60GB+ VRAM → 大部分人还是用不上。Wan 1.3B 同时打掉这两道墙才实现"真正人人能用"。
+
+**打磨版回答**：
+> "8.19 GB 作为独立 key feature，是因为它打掉了**硬件门槛**这道独立的墙 —— 与 Openness 处理的'权限门槛'是两回事。两者是乘法关系，必须同时成立才能让普通人真的用上。"
+
+**Take-away**：Abstract 列 4 个 key features 时是有意把它们**正交化**的（Performance / Comprehensiveness / Efficiency / Openness 各自独立），别在论述时把它们揉在一起。
+
+---
+
+#### Q0.3 ｜ 为什么 Win Rate 比 Wan-Bench Score 更可信？
+
+**问题**：Figure 1 里两组数据，为什么我说 Win Rate 比 Score 更可信？
+
+**Ricardo 答**：「Wan-Bench 是自己建的 benchmark，但 Win Rate 是人类盲评，所以更有客观性可信性。」
+
+**评分**：9/10 — 抓住了「自评 vs 第三方评」的关键差异 + 人类盲评这个核心机制。
+
+**打磨版表达**：
+> "Wan-Bench 是 Wan 团队自建的 benchmark，存在测评指标向自家模型倾斜的风险（即使无意，也可能因 benchmark 设计偏好 Wan 擅长的维度）；Human Win Rate 是**双盲人评**（评估者不知道哪个视频是 Wan 哪个是对手），结构上更难造假，可信度更高。"
+
+**Take-away**：以后看任何论文，**自建 benchmark 的分数都要打折**，**第三方 / 盲评 / 人评的胜率才是真金**。
+
+---
+
+### 本轮总结
+
+| 维度 | 表现 |
+|---|---|
+| 概念抓取 | 强 — 「套件 ≠ 模型」「自评 vs 盲评」都抓得准 |
+| 概念区分 | 待加强 — Q0.2 把 Efficiency 和 Openness 揉混了，提示我读 Abstract 时要把 4 个 key features 当作正交清单看 |
+| 表达精度 | 中 — 答案大意对，但缺关键词（如 Q0.1 漏「开源」） |
+
+**下一节 (01-introduction.md) 重点关注**：论文 Introduction 通常会进一步展开 Abstract 里 4 个 key features 的具体含义，特别留意 **Consumer-Grade Efficiency** 和 **Openness** 是不是被分开论证的 —— 这能帮我确认本轮的修正。
 
 ---
 
