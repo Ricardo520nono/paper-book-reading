@@ -10,13 +10,14 @@
 | **Encoder-Decoder 架构** | "先压再解"的设计模式；信息瓶颈 + 模块化 | [encoder-decoder.md](encoder-decoder.md) |
 | **PSNR** (Peak Signal-to-Noise Ratio) | 重建质量打分，越高越好，单位 dB | [psnr.md](psnr.md) |
 | **Normalization 层** | 把激活拉回标准状态防止数值爆炸；BN / LN / GN / RMSNorm 区别 | [normalization.md](normalization.md) |
+| **Diffusion 基础** | Timestep / MLP / Modulation —— 读 DiT 章节必备 3 个基础 | [diffusion-basics.md](diffusion-basics.md) |
 
 ## 待写
 
 - [ ] DiT (Diffusion Transformer)
 - [ ] Flow Matching
 - [ ] Attention 的 Q / K / V
-- [ ] Diffusion 基础（DDPM / 扩散过程）
+- [ ] Diffusion 完整数学（DDPM / forward-reverse / score function）
 - [ ] Cross-attention vs Self-attention
 - [ ] Spatio-temporal Attention（Full vs Separated）
 - [ ] LPIPS / SSIM / KL 散度（评估指标 / loss）
