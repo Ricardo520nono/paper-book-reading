@@ -40,8 +40,6 @@
 
 ![Figure 9: Architecture of the Wan](../images/figure-09-wan-architecture.png)
 
-> Figure 9: Architecture of the Wan.
-
 💡 **图怎么读** —— 一条主线，两个旁路：
 
 ```
@@ -105,8 +103,6 @@ L = 31 × 45 × 45 = 62,775 个 token
 #### Transformer Block 内部（Figure 10）
 
 ![Figure 10: Transformer block of Wan](../images/figure-10-transformer-block.png)
-
-> Figure 10: Transformer block of Wan.
 
 💡 **每个 block 内部 7 步**（顺着图从上往下）：
 

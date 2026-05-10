@@ -89,8 +89,6 @@ VAE = Variational Autoencoder（变分自编码器）。**关键认知**：它�
 
 ![Figure 5: Wan-VAE Framework](../images/figure-05-wan-vae-framework.png)
 
-> Figure 5: Our Wan-VAE Framework. Wan-VAE can compress the spatio-temporal dimension of a video by 4 × 8 × 8 times. The orange rectangles represent 2× spatio-temporal compression, and the green rectangles represent 2× spatial compression.
-
 💡 **图怎么读**：
 
 输入是 `[1+T, H, W, 3]`（注意是 1+T 不是 T，"+1" 是首帧），经过 **3 个 Down 块** 压缩：
@@ -206,8 +204,6 @@ Stage 3: 高分辨率精修
 
 ![Figure 6: Feature cache mechanism](../images/figure-06-feature-cache.png)
 
-> Figure 6: Our feature cache mechanism. (a) and (b) show how we use this mechanism in regular causal convolution and temporal downsampling, respectively.
-
 > "To efficiently support the encoding and decoding of arbitrarily long videos, we implement a feature cache mechanism within the causal convolution module of Wan-VAE."
 
 💡 **要解决的问题**：长视频不能一次塞进 GPU。比如 1 分钟的 720p 视频有 1440 帧，整段做 VAE encoding 内存会爆。
@@ -249,8 +245,6 @@ Stage 3: 高分辨率精修
 
 ![Figure 7: VAE comparison PSNR vs Efficiency](../images/figure-07-vae-psnr.png)
 
-> Figure 7: Comparison of video reconstruction performance at 720 × 720 resolution and 25 frames.
-
 💡 **图怎么读**：
 - **横轴 = Efficiency**（frames / latency，越右越快）
 - **纵轴 = [PSNR](../../../_concepts/psnr.md)**（重建质量，单位 dB，越高越好；35-40 dB 是 SOTA 区间，每 +10 dB 误差降 10 倍）
@@ -278,8 +272,6 @@ Open Sora Plan（239M） →  中等
 #### Qualitative：4 种典型场景视觉对比
 
 ![Figure 8: VAE reconstruction visualization](../images/figure-08-vae-visualization.png)
-
-> Figure 8: Visualization results of video reconstruction across different scenarios, including texture (first row), face (second row), text (third row), and high-motion (fourth row).
 
 💡 **4 类场景，逐行对比**：
 

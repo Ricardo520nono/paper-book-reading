@@ -97,8 +97,6 @@
 
 ![Figure 13: Wan-Bench dimensions](../images/figure-13-wanbench-dims.png)
 
-> Figure 13: The dimensions covered in Wan-Bench.
-
 | 大类 | 子维度 |
 |---|---|
 | **Dynamic Quality**（动态质量） | Large Motion / Human Artifacts / Physical Plausibility / Smoothness / Pixel-level Stability / ID Consistency |

@@ -71,8 +71,6 @@ DiT 计算成本公式：L · (α·b·s·h² + β·b·s²·h)
 
 ![Figure 11: DiT parallelism](../images/figure-11-dit-parallelism.png)
 
-> Figure 11: Illustration of DiT parallelism. Assuming a total of 128 GPUs, the innermost layer consists of a combination of Ulysses=8 and Ring=2. The outer layer employs FSDP=32, while the outermost layer utilizes DP=4.
-
 💡 **Wan 的并行策略 = 4 层嵌套**（128 GPU 配置示例）：
 
 ```
@@ -177,8 +175,6 @@ DiT 计算成本公式：L · (α·b·s·h² + β·b·s²·h)
 ### §4.4.1 Parallel Strategy
 
 ![Figure 12: Scaling inference via multiple GPUs](../images/figure-12-inference-scaling.png)
-
-> Figure 12: Scaling inference via multiple GPUs.
 
 💡 **复用训练时的 FSDP + 2D CP 策略**。在 Wan 14B 上**几乎线性 speedup** —— 加 N 倍 GPU 推理时间约缩短 N 倍（不是大多模型那种 sub-linear scaling）。
 
