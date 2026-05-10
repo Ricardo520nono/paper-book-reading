@@ -339,7 +339,108 @@ Pre-training:                       Post-training:
 
 ## 🔥 拷打记录
 
-_(待填充 — Round 4 Q&A 用新格式：题 + 标答同时给)_
+### Round 4 · 2026-05-10
+
+> **格式**：新格式 —— 题 + 标答同时给，Ricardo 阅读后有追问再讨论。
+
+#### Q4.2.1 ｜ Patchify 的二次压缩
+
+**问题**：VAE 已经把视频压到了 H/8 × W/8。为什么 DiT 还要再做一次 patchify (3D conv 1×2×2) 把空间再砍一半到 H/16？这个二次压缩的代价和收益是什么？
+
+**标准答案**：
+
+**收益**：
+- token 数减 4 倍（H 减半 + W 减半）
+- attention 算量减 16 倍（O(L²)，L 减 4 倍 → L² 减 16 倍）
+- 5 秒 720p 视频 token 从 ~25 万 token 减到 6.3 万 token，**这个量级 DiT 才能跑得动**
+
+**代价**：
+- 进一步丢失空间细节（精度下降）
+- 但因为 VAE 已经做了主要压缩，patchify 这一刀**只是"在已经压过的 latent 上再多压一点空间"**，损失可控
+
+**为什么是 (1, 2, 2) 不是 (2, 2, 2)**？因为时间维已经压过 4 倍了（VAE 压了），**继续压时间会丢动作信息**。空间维冗余还有得压，所以只压空间。
+
+**Take-away**：VAE 解决"pixel → latent"的大头压缩，patchify 是**为了让 attention 算量可控的二次空间压缩**。整个 pipeline 的总形状压缩 = VAE (4×8×8) + Patchify (1×2×2) = **4×16×16**。
+
+---
+
+#### Q4.2.2 ｜ Flow Matching 训练目标的核心方程
+
+**问题**：用你自己的话解释这三行公式：
+```
+x_t = t·x_1 + (1-t)·x_0
+v_t = x_1 - x_0
+L = ||u(x_t, ctxt, t; θ) - v_t||²
+```
+
+**标准答案**：
+
+**第一行（中间状态）**：把"纯噪声 x_0"和"真实视频 x_1"用 **t** 做线性插值：
+- t=0 时 x_t = x_0（纯噪声）
+- t=1 时 x_t = x_1（清晰视频）
+- 0<t<1 时是两者的混合（部分噪声 + 部分清晰）
+
+**第二行（速度向量）**：从噪声走到清晰的"方向" = x_1 - x_0。这个方向**和 t 无关**（线性插值的导数是常数）。
+
+**第三行（损失函数）**：模型 u 输入 (x_t, 文本 ctxt, 时间 t)，输出预测的速度。我们让它和 ground truth v_t 的 MSE 最小。
+
+**整体目标的直觉**：让模型在每个噪声水平 t 上都学会"**给我一个噪声中间态，告诉我应该往哪个方向走才能到达清晰视频**"。推理时反过来：从纯噪声开始，按预测的速度方向多步前进，最后到达清晰视频。
+
+**类比**：盲人摸象的反向工程。训练时给模型很多"半成品象"（不同噪声水平），让它指出"去清晰象的方向"。推理时模型从一堆噪声开始，按它学到的方向一步步走，最后走出一头象。
+
+**Take-away**：Flow Matching 把 diffusion 训练问题简化为**"在每个 t 上回归一个常数向量 v_t = x_1 - x_0"**。这是 DDPM 的简化升级版。
+
+---
+
+#### Q4.2.3 ｜ Shared MLP 为什么不损性能反而提升？
+
+**问题**：每个 DiT block 处理 timestep 的 MLP 是**共享的**，但每个 block 有独立的 bias。这个设计省了 25% 参数。**为什么参数变少反而性能提升**？
+
+**标准答案**：
+
+**直觉**：**timestep 在所有 block 处理的"概念"是一样的** —— 都是"现在是哪一步去噪"。
+
+```
+方案 A（朴素）：每 block 一个 MLP                方案 B（Wan 选）：所有 block 共享 MLP
+─────────────────────────────────────────────────────────────────────────────
+N 个 MLP 各自学一遍同一件事                       1 个 MLP 学一次，N 个 block 共享
+                                                 + 每个 block 用独立 bias 微调
+─────────────────────────────────────────────────────────────────────────────
+风险：不同 block 学到不一致的 timestep 编码      优势：
+导致 block 之间协同变难                          - 强制 timestep 表征**一致**（block 之间不打架）
+                                                 - 参数共享 = 隐式正则化（防过拟合）
+                                                 - 减少冗余学习
+```
+
+**核心机制：参数共享带来正则化效应**。当一组参数被多次复用时，它必须学到"通用的"表征 —— 而不是过度适配某一个 block 的细节。这种"通用化压力"反而让模型学到更鲁棒的 timestep 表征。
+
+**类比**：N 个学生分别背 9×9 乘法表（每人都过拟合自己的版本）vs N 个学生共用一套乘法表（被迫学到正确通用规则）。第二种结果好。
+
+⚠️ **6 个 modulation params 的细节**：是 **AdaLN-zero**（DiT 论文 Peebles & Xie 2023 提出的）。每个 LayerNorm 用 timestep 调制 scale + shift × 3 处 = 6 个参数。这是 DiT 标配。
+
+**Take-away**：参数共享 ≠ 一定是省钱牺牲；当被共享的功能在所有调用点是同一件事时，共享反而带正则化效应，性能不掉甚至提升。这种"看似简化反而更强"的设计在大模型工程里很常见。
+
+---
+
+### Round 4 总结
+
+| 题 | Take-away |
+|---|---|
+| Q4.2.1 | VAE 主压缩 + Patchify 二次空间压缩 = 4×16×16 总形状压缩，让 attention 算得动 |
+| Q4.2.2 | Flow Matching = "每个 t 回归常数向量"，比 DDPM 简单稳定 |
+| Q4.2.3 | "timestep 概念全 block 通用" → shared MLP 不仅省参数还做隐式正则 |
+
+**累积概念词典新增**：
+- [diffusion-basics.md](../../../_concepts/diffusion-basics.md) — Timestep / MLP / Modulation
+- [transformer-block-stacking.md](../../../_concepts/transformer-block-stacking.md) — N× 是什么意思
+- [training-vs-inference.md](../../../_concepts/training-vs-inference.md) — 训练 vs 推理数据流差别
+
+**衍生讨论**：阅读 §4.2 过程中，Ricardo 进一步问了：
+- "timestep / MLP 是什么" → 抽象到 [diffusion-basics.md](../../../_concepts/diffusion-basics.md)
+- "Figure 10 单个 block 还是 N 个" → 抽象到 [transformer-block-stacking.md](../../../_concepts/transformer-block-stacking.md)
+- "训练时 vs 推理时 走的流程一样吗" → 抽象到 [training-vs-inference.md](../../../_concepts/training-vs-inference.md)
+
+这一节的拷打**不仅打通了 §4.2 内容，还顺手沉淀了 3 个跨论文复用的基础概念**。
 
 ---
 
