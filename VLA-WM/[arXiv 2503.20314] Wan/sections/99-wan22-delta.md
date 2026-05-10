@@ -50,6 +50,22 @@ Wan-VAE: 4×8×8                       ✅ Wan2.2-VAE: 4×16×16 (压缩率 64)
 
 ### (1) Mixture-of-Experts (MoE) Architecture
 
+![Wan 2.2 MoE Architecture (来自 Wan-Video/Wan2.2 GitHub)](https://github.com/Wan-Video/Wan2.2/raw/main/assets/moe_arch.png)
+
+💡 **图怎么读** —— 这张图分左右两个 panel，展示同一个 MoE 在去噪过程不同阶段的专家激活：
+
+**(a) Early Denoising Stage（高噪声阶段，紫色路径）**
+- x_T（纯噪声起点）→ **High-Noise Expert**（实色高亮，正在工作）→ x_t →
+- Low-Noise Expert（淡色，待命）→ x_0
+- **此时模型由 high-noise expert 负责**，建立画面整体布局
+
+**(b) Later Denoising Stage（低噪声阶段，绿色路径）**
+- x_T → High-Noise Expert（淡色，已交班）→ x_t →
+- **Low-Noise Expert**（实色高亮，正在工作）→ x_0
+- **此时模型由 low-noise expert 负责**，精修视频细节
+
+⚠️ **注意**：两个 panel 表示的是**同一个 MoE 在不同 timestep 上的不同行为**，不是两个独立模型。**专家切换由 SNR 阈值 t_moe 决定**（详见原文批注）。
+
 > "Wan2.2 introduces Mixture-of-Experts (MoE) architecture into the video generation diffusion model. MoE has been widely validated in large language models as an efficient approach to increase total model parameters while keeping inference cost nearly unchanged."
 
 💡 **类比理解**：
