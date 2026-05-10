@@ -325,9 +325,60 @@ VL 模型 (qwen-vl-max) 能：
 |---|---|---|---|---|---|
 | **T2V-A14B** | MoE | 27B/14B 激活 | Text → Video | 480P + 720P | ≥80GB |
 | **I2V-A14B** | MoE | 27B/14B 激活 | Image → Video | 480P + 720P | ≥80GB |
-| **TI2V-5B** | Dense | 5B | Text/Image → Video（统一） | 720P@24fps | ≥24GB（4090） |
+| **TI2V-5B** ⭐ | **Dense** | **5B**（全激活） | Text/Image → Video（统一） | 720P@24fps | ≥24GB（4090） |
 | **S2V-14B** | Dense | 14B | Speech + Image → Video | 480P + 720P | ≥80GB |
 | **Animate-14B** | Dense | 14B | 角色动画 / 替换 | 1280×720 | ≥80GB |
+
+#### ⚠️ 命名陷阱：A14B 里的 "14B" 是**激活参数**，不是总参数
+
+```
+"A14B" 拆解：
+   A    = Active（激活）
+   14B  = 每步激活 14B 参数
+
+但总参数 = 27B (两个 14B expert，部分共享 embedding/conditioning)
+
+为什么强调 14B 而不是 27B：
+✓ VRAM 估算按 14B 算（每步只有 14B 在 GPU）
+✓ 算量按 14B 算（FLOPS 按激活参数）
+✓ 官方命名习惯（参考 Mixtral 8×7B）
+
+隐藏意义：用 I2V-A14B 时，显存/速度感觉和 14B Dense 一样
+        但质量比 14B Dense 高（因为容量是 27B）
+        这就是 MoE 的精髓 —— 同等推理成本，更高质量
+```
+
+#### ⚠️ 容易混淆：TI2V-5B 是**真 5B**，不是 MoE
+
+```
+TI2V-5B 全名拆解：
+   "TI2V" = Text+Image to Video（统一模型，同一 ckpt 处理两类任务）
+   "5B"   = 真的 5B 参数 (Dense，没有 MoE)
+
+它和 I2V-A14B 是完全不同的两个模型：
+                I2V-A14B (MoE)        vs    TI2V-5B (Dense)
+─────────────────────────────────────────────────────────
+总参数        27B                          5B
+激活参数      14B / 步                     5B / 步
+架构          MoE 双专家                   Dense 单一模型
+VRAM          ~80GB                        ~24GB（4090 可跑）
+质量天花板    更高（27B 容量）              中等（5B 上限）
+典型场景      工业部署                      个人/学术/快速迭代
+```
+
+#### 判断你之前用的是哪个？
+
+```bash
+# I2V-A14B (27B/14B 激活):
+python generate.py --task i2v-A14B --ckpt_dir ./Wan2.2-I2V-A14B ...
+
+# TI2V-5B (5B Dense):
+python generate.py --task ti2v-5B --ckpt_dir ./Wan2.2-TI2V-5B ...
+```
+
+或看 checkpoint 文件夹名：
+- `Wan2.2-I2V-A14B/` → 27B/14B 激活的 MoE
+- `Wan2.2-TI2V-5B/` → 5B Dense
 
 ### TI2V-5B vs I2V-A14B 关键区别（answer to Q2）
 
