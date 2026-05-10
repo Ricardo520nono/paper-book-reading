@@ -124,6 +124,50 @@ SNR:                [小 → 大]
 
 ---
 
+### (3.5) Prompt Extension 升级（隐藏的工程进步）
+
+> **来源**：Wan 2.2 GitHub README 的 "Using Prompt Extension" 章节
+>
+> **背景**：Wan 2.1（[§4.5 Prompt Alignment](04-prompt-eval.md#-45-prompt-alignment--用户-prompt-怎么对齐训练分布)）已经引入用 LLM rewrite 用户 prompt 的机制。Wan 2.2 把这个机制升级了。
+
+#### 不同任务用不同 rewriter
+
+```
+任务         默认 (Dashscope API)         本地替代 (HuggingFace)
+─────────────────────────────────────────────────────────────
+T2V          qwen-plus（纯文本 LLM）       Qwen2.5-14B/7B/3B-Instruct
+I2V          qwen-vl-max（VL 多模态 LLM）   Qwen2.5-VL-7B/3B-Instruct
+TI2V-5B      自动分流：                     同上
+              - 纯文本 → qwen-plus
+              - 有图   → qwen-vl-max
+```
+
+⚠️ **关键升级**：**I2V 任务用 VL 模型 rewrite**，不是纯文本 LLM。
+
+#### 为什么 I2V 必须用 VL 模型？
+
+```
+纯文本 LLM 看不到图，rewrite 用户的"让它动起来"还是"让它动起来"
+VL 模型 (qwen-vl-max) 能：
+  1. 看图 → 识别图像内容（"白色波斯猫坐在窗台"）
+  2. 结合用户意图 → 改写为详细 prompt
+                  ("柔光摄影风格，白色波斯猫从窗台站起，缓缓走向花园...")
+  3. 改写后的 prompt 既贴合图像，又有充分细节
+```
+
+🎯 **核心洞察**：**在 I2V 任务里，rewriter 自身就是个多模态模型**。这呼应了"prompt 适配层是部署工程的隐藏环节"的洞察 —— Wan 2.2 把这个适配层做得更智能。
+
+#### 实战使用注意事项
+
+⚠️ 推理时的命令行参数：
+- `--use_prompt_extend`：启用 prompt extension
+- `--prompt_extend_method 'dashscope'` 或 `'local_qwen'`
+- `--prompt_extend_model`：指定具体模型路径
+
+**默认是关闭的**！如果不开，模型直接吃用户原 prompt → **生成质量打折扣**。这是个**部署上的常见坑**。
+
+---
+
 ### (4) 高效高清 Hybrid TI2V（5B 模型 + 新 VAE）
 
 > "To enable more efficient deployment, Wan2.2 also explores a high-compression design. In addition to the 27B MoE models, a 5B dense model, i.e., TI2V-5B, is released. It is supported by a high-compression Wan2.2-VAE, which achieves a T×H×W compression ratio of 4×16×16, increasing the overall compression rate to 64 while maintaining high-quality video reconstruction."
