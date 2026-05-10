@@ -9,6 +9,7 @@
 | **VAE** (Variational Autoencoder) | AI 学出来的压缩器；pixel ↔ latent 的桥梁 | [vae.md](vae.md) |
 | **Encoder-Decoder 架构** | "先压再解"的设计模式；信息瓶颈 + 模块化 | [encoder-decoder.md](encoder-decoder.md) |
 | **PSNR** (Peak Signal-to-Noise Ratio) | 重建质量打分，越高越好，单位 dB | [psnr.md](psnr.md) |
+| **Normalization 层** | 把激活拉回标准状态防止数值爆炸；BN / LN / GN / RMSNorm 区别 | [normalization.md](normalization.md) |
 
 ## 待写
 
