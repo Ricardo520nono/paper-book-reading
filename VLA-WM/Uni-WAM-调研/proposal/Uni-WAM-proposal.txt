@@ -1,0 +1,79 @@
+【Research Proposal】Uni-WAM​
+Uni-WAM: A Unified World Action Model with Explicit
+Action Control and Systematic Out-of-Distribution
+Evaluation​
+研究动机
+当前大量工作声称使用（具身）视频生成世界模型进行：
+• world model as environment 的 强化学习 和 DAgger 数据增强​
+• Policy evaluation​
+然而，这些应用的前提假设从未被系统验证：
+世界模型能否在任意数值 action（包括次优、随机、探索性的action）下生成物理一致且视觉合理的
+未来观测？
+核心观察
+训练数据偏倚 distribution shift：​
+• 所有现有 WM 都在 expert demonstrations 上训练（仅覆盖成功的、接近最优的 action）​
+• 缺失：失败轨迹、探索性 action、随机 action​
+初步测试结果：WM 在 OOD action上崩溃​ Cosmos-Predict2.5 actcon在 visual prompt 数据集上后
+训练，验证 ​
+• 输入维度合法但随机生成的action​
+• 输出：机械臂处产生模糊、视觉乱码、伪影
+理论-实践矛盾：​
+• 自进化（包括 iterative SFT 和 RL）需要探索各种 action（包括次优的）​
+• WM 仅在 expert action上训练​
+• 推论：WM 可能无法支持真正的自进化​
+为什么现有的很多自进化（RL & DAgger）的工作能 work？​
+• 多个工作需要大量 data filtering，说明 WM 的原始产物存在大量幻觉​
+• 多个工作存在 circular reasoning（三种表现形式）​
+  ◦ 用 policy data 训练 WM 又用 WM 评估 policy​
+      ▪ 这是 overfitting verification，不是 evaluation​
+   ◦ 用 WM 训练 policy，周期性又用 policy rollout 训练 WM​
+      ▪ WM 逐渐"学会"当前 policy 的分布​
+   ◦ Policy执行，WM 生成 obs，WM 预测 expert action，训练​
+      ▪ Policy 会学会符合 WM 的 bias​
+• 个人断言：data filtering 和 circular reasoning 使得所谓的自进化退化为特殊的数据增强，而且基
+  于想象的探索
+• 世界模型并未真正学习 action-conditioned dynamics，而是记住了训练数据中的 (state, action,
+  next_state) 配对模式​
+研究价值
+1. 首个建立的系统化的 WM OOD 评估基准​
+2. 设计了 unified architecture 和 OOD training dataset 来显式增强 action control​
+核心故事
+1. motivation：许多工作都在用世界模型做自进化，但没人验证过它在 OOD action 上 work​
+2. benchmark：我们首先建立了系统化的 OOD action 评估基准，揭示现有SOTA的根本缺陷​
+3. model：基于发现的问题，我们设计了 unified architecture 来显式增强 action control​
+4. data：我们设计了数据增强策略，利用仿真大规模生成+图像风格迁移，赋予 WM 全分布 action
+   flowing 能力​
+5. validation：在我们自己的 benchmark上，新模型在 OOD action 上显著更 robust，且效果达到
+   SOTA​
+相关工作
+类别​ 工作名称​               做了什么✅​                  没有做到什么❌​
+World EWMBench          • 提出三维评估：场景一致性、运动 • 测试数据仅来自训练分布（成功
+Model (2025/05)​          正确性、语义对齐​               轨迹）​
+Bench                   • 设计轨迹评估指标：HSD, NDTW,   • 从未测试 random 或 sub-
+ mark​                    DYN​                    optimal action​
+   ​                    • 在Agibot-World数据集上评估7个 • 没有 OOD action 的评估​
+                          模型​                   • 没有量化 action 分布覆盖率​
+                        • 评估指标与人类判断高度相关​        • 没有测试失败轨迹的预测能力​
+WorldArena        • 评估框架：感知质量（16）+ 功能             • "可控性"指标是 text-to-video，
+(2026/02)​          效用（3）​                          不是数值 action​
+                  • 功能效用：data synthesis, policy   • 功能评估仍在ID action上（用训
+                    evaluation, planning​           练分布的policy）​
+                  • 揭示"感知-功能差距"​                  • 没有测试OOD action的功能性​
+                  • 提出 EWMScore 综合指标​             • 没有random action的压力测试​
+MIND (2026/02)​   • 评估记忆一致性和 action 控制​           • 测试的是 general world model
+                  • 第一/第三人称双视角​
+                                                    （第一/三人称）​
+                  • 测试action space泛化（不同速          • 测试的不是 robotics 场景​
+                    度、旋转角度）​
+                  • 250个高质量视频，多种场景​
+ACT-Bench         • 提出 IEC（指令-执行一致性）和 TA          • 仅限自动驾驶场景（不是
+(2024/12)​          （轨迹对齐）指标​                       robotic）​
+RoboWM-Bench      • 将生成视频转为action序列并在             • 仅用于评测 WM 生成的视频​
+(2026/04)​          sim中执行​                       • 没有考虑数值 action-
+                  • 测试任务完成率​                        conditioned WM​
+                  • 强调"视觉真实性 ≠ 物理合理性"​
+WorldGym          • 测试了 OOD language 和 OOD        •   没有考虑 OOD action​
+(2025/05)​          initial imgae​
+Ctrl-World
+(2025/10)​
+
