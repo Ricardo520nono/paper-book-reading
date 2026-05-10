@@ -64,7 +64,109 @@ Wan-VAE: 4×8×8                       ✅ Wan2.2-VAE: 4×16×16 (压缩率 64)
 - **Low-Noise Expert**（实色高亮，正在工作）→ x_0
 - **此时模型由 low-noise expert 负责**，精修视频细节
 
-⚠️ **注意**：两个 panel 表示的是**同一个 MoE 在不同 timestep 上的不同行为**，不是两个独立模型。**专家切换由 SNR 阈值 t_moe 决定**（详见原文批注）。
+⚠️ **注意**：两个 panel 表示的是**同一个 MoE 在不同 timestep 上的不同行为**（用谁工作变了，整套 MoE 没变）。**专家切换由 SNR 阈值 t_moe 决定**（详见下文批注）。
+
+---
+
+#### 三个最容易困惑的点（每个都要搞清楚）
+
+##### 困惑 1：两个专家的参数是不是不一样的？
+
+**完全不一样，是两套独立的 14B 参数**。
+
+```
+Wan 2.2 MoE 拆解:
+─────────────────────────────────────────────────
+High-Noise Expert: 一个独立的 ~14B 参数 DiT
+                   拥有自己的所有权重 (W^H_attn, W^H_FFN, ...)
+
+Low-Noise Expert:  另一个独立的 ~14B 参数 DiT
+                   拥有自己的所有权重 (W^L_attn, W^L_FFN, ...)
+                   ↑ 和 W^H 完全不同的两套数字
+
+总参数: ~27B (不是 28B 因为共享了部分 embedding/conditioning)
+每步激活: 14B (只调用其中一个专家)
+─────────────────────────────────────────────────
+```
+
+⚠️ **Wan 2.2 MoE ≠ LLM MoE**（如 Mixtral / DeepSeek-V3）：
+- **LLM MoE**：8 个 expert 是 FFN 子模块，按 token 路由，每个 token 选 top-2
+- **Wan 2.2 MoE**：2 个 expert 是"两个完整 14B DiT"，按 timestep 路由
+
+类比：
+- LLM MoE = 一个公司里 8 个会计随机分配处理客户
+- **Wan 2.2 MoE = 一个项目分两阶段，前期请建筑师，后期请室内设计师，两人完全不同专业**
+
+##### 困惑 2：High-noise / Low-noise 到底指什么？
+
+指的是 **diffusion 中输入数据的噪声水平**：
+
+```
+Wan / Flow Matching 约定：
+─────────────────────────────────────────
+t = 0          t = 0.5           t = 1
+└─ 起点         └─ 中段           └─ 终点
+ 纯噪声        半噪+半清晰        清晰视频
+ x_0           x_t                x_1
+
+噪声水平: HIGH ─────────────────> LOW
+```
+
+- **High-noise 阶段** = 早期去噪 = 输入还是一团噪声
+- **Low-noise 阶段** = 晚期去噪 = 输入接近清晰视频
+
+⚠️ **顺序提醒**：
+- "**Early** Denoising Stage" = 早期 = **HIGH** 噪声 ← high-noise expert 上场
+- "**Later** Denoising Stage" = 后期 = **LOW** 噪声 ← low-noise expert 上场
+
+**先 high 后 low** 是因为 diffusion 推理顺序本来就是从噪声走到清晰（[详见 training-vs-inference.md](../../../_concepts/training-vs-inference.md)）。
+
+##### 困惑 3：为什么 high-noise → 粗，low-noise → 精细？
+
+**这是 diffusion 任务本质决定的，不是 Wan 强加的设定**。
+
+```
+高噪声阶段（看不清）：              低噪声阶段（看得清）：
+┌──────────────────┐                ┌──────────────────┐
+│ ░▓▒░▓▒█▒░▓▒█▒░  │                │   👤      🌳      │
+│ ▒█░▓▒░█▓▒░█▒░▓  │                │                   │
+│ ░▓▒█░▒▓░▒█▓░▒█  │                │                   │
+└──────────────────┘                └──────────────────┘
+能做的判断：                         能做的判断：
+✓ "左边好像有人物"  ← 大局        ✓ 已经看到合理人物 + 树
+✓ "右边好像有树"    ← 大局        → 任务: 精修
+✗ 眉毛形状？        看不清          ✓ 加眉毛细节   ← 精细
+✗ 树叶纹理？        看不清          ✓ 加树叶纹理   ← 精细
+```
+
+**一句话**：**去噪 = 信息逐步揭露**。早期信息少 → 只能做粗粒度决策（layout）；晚期信息多 → 可以做细粒度决策（details）。
+
+##### 为什么不让单个模型干这两件事？
+
+```
+单模型既要会"画草图"又要会"画工笔"：
+   ↓ 有限参数必须在两种能力之间取舍
+   ↓ 两边都只是 OK，没有专精
+
+两个专家各管一段：
+   ↓ High-Noise Expert: 14B 全力学"从噪声建结构"
+   ↓ Low-Noise Expert:  14B 全力学"从轮廓打磨细节"
+   ↓ 两边都做到极致 → 整体质量提升
+```
+
+⚠️ **专精优势**：相同 14B 参数预算，**专注一种任务**比**两种任务均摊**学得更精。这就是 MoE 比 dense 模型在同等激活参数下质量更高的根本原因。
+
+##### 3 个类比帮助记忆
+
+| 类比 | High-Noise Expert | Low-Noise Expert |
+|---|---|---|
+| **画油画** | 起底色、铺大块构图 | 精修细节、亮点高光 |
+| **写小说** | 列大纲、定章节结构 | 润色措辞、推敲对白 |
+| **盖房子** | 建筑师：定结构 / 空间布局 | 室内设计师：选家具 / 调色彩 |
+
+每一阶段对**专业能力的要求完全不同** —— 用不同的人做最对路。
+
+---
 
 > "Wan2.2 introduces Mixture-of-Experts (MoE) architecture into the video generation diffusion model. MoE has been widely validated in large language models as an efficient approach to increase total model parameters while keeping inference cost nearly unchanged."
 
