@@ -349,7 +349,98 @@ Wan 选这 4 类做对比，是有意 highlight 自己在"难场景"上的优势
 
 ## 🔥 拷打记录
 
-_(待填充 — Round 3 Q&A 将在这里整段回写)_
+### Round 3 · 2026-05-10
+
+> **Workflow note**：Round 3 中途切换到"题 + 标答同时给"的新格式，更高效。Q4.1.1 走老格式（Ricardo 先答），Q4.1.2 / Q4.1.3 走新格式。
+
+#### Q4.1.1 ｜ 基础理解（老格式）
+
+**问题**：5 秒 24fps 720×720 视频，原始 vs latent 各多少值？压缩比？Latent 里 "+1" 的设计目的？
+
+**Ricardo 答**：
+- (a) `(1+(5×24)) × 720 × 720`（漏了 channel = 3）
+- (b) "因为很多地方第一帧是输入，比如 I2V，要保持一致"
+
+**评分**：(a) 8/10 — 结构对，漏 channel；(b) 8/10 — 抓到核心 (I2V) 但表达可更精确。
+
+**关键修正与标答**：
+- 原始：`121 × 720 × 720 × 3` ≈ **1.88 亿值**
+- Latent：`31 × 90 × 90 × 16` ≈ **402 万值**
+- **形状压缩 4×8×8 = 256×**（论文 highlight）
+- **实际值数压缩 ≈ 47×**（含 channel 3→16 反向膨胀 5.33×）
+- **"+1" 设计目的**：T2V 任务首帧无所谓；I2V 需要从一张特定图开始。如果首帧也参与时间压缩就和周围 3 帧混合，独立信息丢失。所以给首帧"留单间"作为锚点帧 → **同一个 VAE 同时支持 T2V (忽略锚点) 和 I2V (锚点 = 用户上传图)**。
+
+**Take-away**：读 paper 算尺寸时**不要漏 channel 维**。论文报"压缩比"通常指**形状压缩**（spatio-temporal），实际工程预估存储/算量要算 channel 在内的**净压缩**。
+
+---
+
+#### Q4.1.2 ｜ GroupNorm → RMSNorm 根本原因（新格式：题 + 标答同时给）
+
+**问题**：Wan-VAE 把 GroupNorm 换 RMSNorm。GroupNorm 在视频 VAE 上具体出什么问题？RMSNorm 怎么解决？
+
+**标准答案**：
+
+GroupNorm 有两个问题：
+
+1. **跨时间帧统计破坏因果性**：GroupNorm 沿 (H, W) 算 mean/std。视频 chunk 内多帧一起 norm → 第 1 帧的统计用了第 4 帧的信息 → 训练时"未来 → 过去"剧透；推理时第 1 帧出来时不知道第 4 帧 → 训练分布 ≠ 推理分布 → **生成崩**
+
+2. **和 Feature Cache 不友好**：跨 chunk 处理时，GroupNorm 需要"全局或大范围统计"，统计量在 chunk 边界不一致 → 激活值在边界**跳变** → 拼出来的视频有"接缝"
+
+RMSNorm 的解决方式：**只算 RMS（均方根），不算均值，不减均值** —— 副作用是统计变得**完全局部化**：
+- 每个位置自己算自己的 RMS，不依赖跨帧/跨 chunk 统计 → causal 自然成立
+- 跨 chunk feature cache 时前后 chunk 各自做 RMSNorm 在边界**不跳变**
+- 数学上更轻（少一次均值统计 + 减法）
+
+**一句话**：GroupNorm 需要"看大范围才能 norm"，RMSNorm "每个点局部就能 norm"。**视频 VAE + chunk 推理这套架构需要后者**。
+
+📖 **基础**：见 [`_concepts/normalization.md`](../../../_concepts/normalization.md)
+
+---
+
+#### Q4.1.3 ｜ Feature Cache 一句话 + 与 LLM KV Cache 对比（新格式）
+
+**问题**：(a) Feature Cache 一句话核心思想？(b) 它和 LLM KV cache 是不是一回事？
+
+**标准答案**：
+
+**(a) 一句话**：
+> "**上一个 chunk 处理完留下边界帧的中间特征，下一个 chunk 直接拿来用，不用从头算**"。
+
+**(b) 与 LLM KV Cache 对比**：
+
+| 维度 | LLM KV Cache | Wan-VAE Feature Cache |
+|---|---|---|
+| 本质思想 | "上一步算过的中间结果别扔" | "上一 chunk 算过的中间特征别扔" |
+| 缓存什么 | 每层 self-attention 的 K, V 矩阵 | causal conv 的中间帧特征 |
+| 为什么需要 | 自回归生成下一个 token 时前面 token 的 K/V 必复用 | chunk-wise 处理长视频时跨 chunk 边界必依赖前 chunk |
+| 是否参与梯度 | 推理用 | 推理用 |
+| 失败惩罚 | 每生成一个 token 重算所有历史 K/V → O(n²) 爆炸 | 长视频跑不下 / 边界出现接缝 |
+
+**思想同源**：都是 **"中间状态在序列长度方向上累积复用"** 的工程优化。都把 O(N²) 朴素重算降到 O(N) 摊销。
+
+**关键不同**：
+- LLM KV Cache = **自回归生成中"边生成边记住"**（时间方向单向流动）
+- Feature Cache = **编/解码中"chunk 边界缝合"**（视频已存在，只是分批处理）
+
+**类比**：
+- LLM KV Cache = 写小说时随手记笔记，下一段接着写
+- Feature Cache = 把长卷轴分段装裱，相邻段之间留几厘米重叠保证看起来连续
+
+**Take-away**：批读里说"是一回事"是简化说法。**严格讲它们思想同源但用法不同** —— 一个是生成中累积，一个是处理中拼接。但记住"它们都是 sequence-axis cache"这个共性就够了。
+
+---
+
+### Round 3 总结
+
+| 题 | 表现 / Take-away |
+|---|---|
+| Q4.1.1 | 抓住核心，漏 channel 维。压缩比 256× vs 47× 是不同概念，paper 用第一个 |
+| Q4.1.2 | GroupNorm 在视频上破坏因果 + 不友好 cache；RMSNorm 局部化解决 |
+| Q4.1.3 | Feature Cache ≈ 视频版 KV Cache，思想同源但生成 vs 处理不同 |
+
+**新累积概念词典**：[normalization.md](../../../_concepts/normalization.md)
+
+**Workflow 升级**：从 Q4.1.2 起切到"题 + 标答同时给"，速度快 2-3 倍。看不懂的地方主动追问 Claude。
 
 ---
 

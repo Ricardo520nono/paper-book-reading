@@ -36,8 +36,8 @@ Wan 是阿里通义实验室的全开源视频生成基座，提供 1.3B（消�
 | 1 | [01-introduction.md](sections/01-introduction.md) | 三大 Gap + Wan 解法 + 双尺寸 + Openness | 🔥 必读 | ✅ 已完成（Round 2 拷打 done） |
 | 2 | ~~02-related-work.md~~ | T2V/I2V 相关工作 | 选读 | ⏭️ **跳过** —— Intro Para 1 已点名对手 |
 | 3 | ~~03-data-pipeline.md~~ | 数据策划、密集 caption | 选读 | ⏭️ **跳过** —— 非 §4 前置；§3.3 Dense Caption 可日后单独读 |
-| 4.1 | [04-method-vae.md](sections/04-method-vae.md) | 时空 VAE 架构 | 🔥 必读 | 🟡 已批读，待拷打 |
-| 4.2 | [04-method-dit.md](sections/04-method-dit.md) | DiT 视频扩散模型 + 训练 | 🔥 必读 | ⏳ 待写 |
+| 4.1 | [04-method-vae.md](sections/04-method-vae.md) | 时空 VAE 架构 | 🔥 必读 | ✅ 已完成（Round 3 拷打 done） |
+| 4.2 | [04-method-dit.md](sections/04-method-dit.md) | DiT 视频扩散模型 + 训练 | 🔥 必读 | 🟡 已批读，待拷打 |
 | 4.3-4.4 | [04-scaling-inference.md](sections/04-scaling-inference.md) | 训练效率 / 推理优化 | ⭐ 重点 | ⏳ 待写 |
 | 4.5-4.7 | [04-prompt-eval.md](sections/04-prompt-eval.md) | Prompt 对齐 / 评测 | 选读 | ⏳ 待写 |
 | 5.1 | [05-i2v.md](sections/05-i2v.md) | Image-to-Video（贴近你的使用场景） | 🔥 必读 | ⏳ 待写 |
