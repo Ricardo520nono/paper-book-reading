@@ -48,12 +48,28 @@
 
 💡 **VAE 在视频生成里的位置**（呼应你之前问"视频 latent 是什么"）：
 
-```
-   原始视频 ─VAE Encoder→ Latent ←DiT 在这里训练→ Latent ─VAE Decoder→ 生成视频
-   (pixel 空间)        (压缩空间)               (压缩空间)             (pixel 空间)
+```mermaid
+flowchart TD
+    A(["原始视频<br/>pixel 空间<br/>~6630 万值/秒@720p"])
+    B(["Latent (输入)<br/>压缩空间<br/>~138 万值/秒"])
+    C(["Latent (生成)<br/>压缩空间"])
+    D(["生成视频<br/>pixel 空间"])
+
+    A -->|"VAE Encoder<br/>(压缩 ~48×)"| B
+    B -.->|"DiT 单一 Transformer<br/>在 latent 空间反复去噪<br/>cross-attn 注入文本<br/>full ST attn 内部协调"| C
+    C -->|"VAE Decoder<br/>(还原)"| D
+
+    style A fill:#cce5ff,stroke:#0066cc,stroke-width:2px
+    style B fill:#fff3cd,stroke:#cc7700,stroke-width:2px
+    style C fill:#fff3cd,stroke:#cc7700,stroke-width:2px
+    style D fill:#cce5ff,stroke:#0066cc,stroke-width:2px
 ```
 
-VAE = Variational Autoencoder（变分自编码器）。"Variational" 是数学上的训练目标特性（KL 散度约束），暂时不必深究。**关键认知**：VAE 就是个**编解码器，把高维 pixel 压成低维 latent**。
+⚠️ DiT **不是** encoder-decoder，它是单一 Transformer 在 latent 空间内做变换（输入 latent，输出 latent，形状一样）。Encoder-Decoder 模式只出现在 VAE 这一层。
+
+📖 **想看 VAE 完整入门**：见 [`_concepts/vae.md`](../../../_concepts/vae.md)（什么是 VAE、什么是"V"、为什么 Wan 必须用、3D Causal 修饰是什么）
+
+VAE = Variational Autoencoder（变分自编码器）。**关键认知**：它是个**编解码器，把高维 pixel 压成低维 latent**，"V" 让 latent 空间变光滑。
 
 > "However, designing effective VAEs for video generation tasks faces several challenges. First, videos inherently possess both spatial and temporal dimensions, requiring the VAE to capture complex spatio-temporal dependencies. Second, the inherent high-dimensional nature of video... increases memory consumption and computational costs... Third, ensuring temporal causality (i.e., future frames do not influence past frames) is critical..."
 

@@ -5,6 +5,14 @@ Ricardo 的论文 + 读书笔记仓库。每篇内容采用「批读 + 拷打」
 - **批读（Batch Reading）**：原文完整保留 + 内嵌批注，重点 paper 走完整流程
 - **拷打（Quiz）**：每读完一节，由 Claude 反向提问直到我能用自己的话讲清楚，问答记录回写到笔记里
 
+## 📚 概念词典
+
+跨论文通用的基础概念沉淀在这里：
+
+> [`_concepts/`](_concepts/) — VAE / Encoder-Decoder / DiT / Flow Matching / Q-K-V / ...
+
+读 paper 第一次遇到某个概念就**链接到这里**，不在 section 里重复解释。
+
 ## 📂 课题列表
 
 ### 🤖 VLA-WM（Vision-Language-Action + World Models）
