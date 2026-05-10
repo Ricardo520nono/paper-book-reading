@@ -8,6 +8,7 @@
 |---|---|---|
 | **VAE** (Variational Autoencoder) | AI 学出来的压缩器；pixel ↔ latent 的桥梁 | [vae.md](vae.md) |
 | **Encoder-Decoder 架构** | "先压再解"的设计模式；信息瓶颈 + 模块化 | [encoder-decoder.md](encoder-decoder.md) |
+| **PSNR** (Peak Signal-to-Noise Ratio) | 重建质量打分，越高越好，单位 dB | [psnr.md](psnr.md) |
 
 ## 待写
 
@@ -17,7 +18,7 @@
 - [ ] Diffusion 基础（DDPM / 扩散过程）
 - [ ] Cross-attention vs Self-attention
 - [ ] Spatio-temporal Attention（Full vs Separated）
-- [ ] PSNR / LPIPS / KL 散度（评估指标 / loss）
+- [ ] LPIPS / SSIM / KL 散度（评估指标 / loss）
 - [ ] Inflation（2D → 3D 权重扩展）
 
 ## 使用约定
