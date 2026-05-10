@@ -11,6 +11,7 @@
 | **PSNR** (Peak Signal-to-Noise Ratio) | 重建质量打分，越高越好，单位 dB | [psnr.md](psnr.md) |
 | **Normalization 层** | 把激活拉回标准状态防止数值爆炸；BN / LN / GN / RMSNorm 区别 | [normalization.md](normalization.md) |
 | **Diffusion 基础** | Timestep / MLP / Modulation —— 读 DiT 章节必备 3 个基础 | [diffusion-basics.md](diffusion-basics.md) |
+| **Transformer Block 堆叠** | "N×" 是什么意思；block 之间的参数关系 | [transformer-block-stacking.md](transformer-block-stacking.md) |
 
 ## 待写
 
