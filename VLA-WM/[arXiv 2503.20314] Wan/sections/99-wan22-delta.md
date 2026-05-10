@@ -288,6 +288,80 @@ VL 模型 (qwen-vl-max) 能：
 
 ### (4) 高效高清 Hybrid TI2V（5B 模型 + 新 VAE）
 
+#### TI2V-5B 没有"独立架构图"，因为架构就是 Wan 2.1 DiT
+
+⚠️ **常见误解**：以为 TI2V-5B 是和 A14B 平行的"另一种新架构"。
+**真相**：TI2V-5B 的 DiT 主体**就是 Wan 2.1 论文 Figure 9 + Figure 10 那套标准 DiT**，只是参数量减到 5B，并配上新的 Wan2.2-VAE。
+
+```
+TI2V-5B = Wan 2.1 标准 DiT (5B 参数版本)
+        + Wan2.2-VAE (4×16×16 高压缩)
+
+         ✗ 不是 MoE
+         ✗ 没有 high-noise / low-noise expert
+         ✗ 没有时间步路由
+         ✓ 就是 "Wan 2.1 小一号 + 配新 VAE"
+```
+
+**架构图就是 [04-method-dit.md 里的 Figure 9 + Figure 10](04-method-dit.md#整体架构figure-9)**。
+
+#### Wan2.2-VAE 压缩对照表（来自 Wan-Video/Wan2.2 GitHub）
+
+![Wan VAE 对比 (来自 Wan-Video/Wan2.2 GitHub)](https://github.com/Wan-Video/Wan2.2/raw/main/assets/vae.png)
+
+💡 **怎么读这张表**：
+
+| 模型 | Compression Ratio (T×H×W) | Feature Dim (channel) | Info Comp Rate | PSNR↑ | LPIPS↓ |
+|---|---|---|---|---|---|
+| SVD | 1×8×8 | 4 | 48 | 28.307 | 0.067 |
+| Cosmos | 4×8×8 | 16 | 48 | 29.632 | 0.132 |
+| Hunyuan | 4×8×8 | 16 | 48 | 33.298 | 0.023 |
+| CogVideoX1.5 | 4×8×8 | 16 | 48 | 32.955 | 0.040 |
+| **Wan2.1-VAE** | 4×8×8 | 16 | 48 | 32.222 | 0.026 |
+| **Wan2.2-VAE** ⭐ | **4×16×16** | **48** | **64** | **33.223** | **0.022** |
+
+**3 个关键数字升级**：
+
+```
+                    Wan 2.1-VAE      →      Wan 2.2-VAE
+─────────────────────────────────────────────────────────
+Compression Ratio:   4×8×8                4×16×16        ← 空间维多压一倍
+                     (256× 形状压缩)      (1024× 形状压缩)
+─────────────────────────────────────────────────────────
+Feature Dim:         16 channel           48 channel     ← latent 通道扩 3 倍
+─────────────────────────────────────────────────────────
+Info Comp Rate:      48                   64             ← 净信息压缩率 +33%
+                     (256/(16/3)≈48)      (1024/(48/3)≈64)
+─────────────────────────────────────────────────────────
+PSNR:                32.222               33.223 ⭐      ← 反而更高（重建更准）
+─────────────────────────────────────────────────────────
+LPIPS:               0.026                0.022 ⭐       ← 反而更低（感知差异更小）
+```
+
+⭐ **最关键洞察**：Wan2.2-VAE **压得更狠** (1024× vs 256×)，但 **PSNR 反而更高**（33.22 vs 32.22）+ **LPIPS 反而更低**（0.022 vs 0.026）。
+
+🤔 **怎么做到"压得更狠还更准"**？两个 trick：
+1. **Channel 维补偿**：spatial 多压一倍（4×8×8 → 4×16×16）的同时，channel 从 16 扩到 48 —— **空间损失部分被 channel 容量吸收**
+2. **训练数据 / 损失更好**：Wan2.2-VAE 用了更多 / 更好的视频数据 + 改进的训练 loss（论文未细讲）
+
+🪄 **TI2V-5B 之所以能在 4090 跑 720P 24fps，根本原因是 Wan2.2-VAE 的 1024× 压缩** —— DiT 实际只需处理压成 latent 的少量 token，5B Dense 也够用。
+
+#### 为什么 TI2V-5B 选择 "Dense + 新 VAE"，而不是"小 MoE + 老 VAE"？
+
+```
+方案 A (假想)：1B/2B MoE 双专家 + Wan 2.1 VAE (4×8×8)
+   - MoE 在小模型上训练困难
+   - 老 VAE token 数仍多, 5B-class 推理压力大
+
+方案 B (Wan 实选)：5B Dense + Wan2.2-VAE (4×16×16)  ⭐
+   - Dense 训练简单，工程稳
+   - 高压缩 VAE 把 token 数砍 4 倍 → 5B 也跑得动 720P
+   - VAE 是预训练好的，可以独立优化
+```
+
+**核心哲学**：**把"压力"从模型架构转移到 VAE 上**。VAE 干苦活（高压缩），DiT 反而可以变小变简单。这是个**反直觉但聪明的设计**。
+
+
 > "To enable more efficient deployment, Wan2.2 also explores a high-compression design. In addition to the 27B MoE models, a 5B dense model, i.e., TI2V-5B, is released. It is supported by a high-compression Wan2.2-VAE, which achieves a T×H×W compression ratio of 4×16×16, increasing the overall compression rate to 64 while maintaining high-quality video reconstruction."
 
 💡 **TI2V-5B 是 Wan 2.2 的"消费级旗舰"**：
