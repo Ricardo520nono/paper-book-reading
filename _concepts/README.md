@@ -14,6 +14,7 @@
 | **Transformer Block 堆叠** | "N×" 是什么意思；block 之间的参数关系 | [transformer-block-stacking.md](transformer-block-stacking.md) |
 | **训练 vs 推理** | 架构相同；推理 = DiT 循环 50 次（这是 diffusion 慢的根因） | [training-vs-inference.md](training-vs-inference.md) |
 | **Pre-training vs Post-training** | 学通识 vs 学品味；架构不变只换数据；起源 LLM 蔓延到所有 foundation model | [pretraining-vs-posttraining.md](pretraining-vs-posttraining.md) |
+| **CLIP** | 把图像和文字嵌入同一向量空间的双编码器；视觉 AI 的通用理解器 | [clip.md](clip.md) |
 
 ## 待写
 
