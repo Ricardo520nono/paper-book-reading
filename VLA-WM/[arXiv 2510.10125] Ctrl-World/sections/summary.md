@@ -386,4 +386,28 @@ Ctrl-World 验证了它的两个 use case 都**在 ID setting 下 work**：
 
 ---
 
-> 后续点位等 Ricardo 指定再补 ⏳
+## 5. Summary · 整篇 paper 一段话
+
+> Ctrl-World 是一个用于 generalist robot manipulation 的 **可控、多视角、长时一致** 的 generative world model。它从 **SVD 1.5B** 这个被动视频生成模型出发，加了 3 个关键改造 —— **多视角联合预测、pose-conditioned 历史帧检索、frame-level cross-attention 注入 action chunk** —— 把一个"导演"改造成了"动捕渲染器"。
+>
+> 训于 DROID（95k 真机轨迹），它做到了两件事：
+> 1. **作为 policy ranker**（Figure 7）：在 imagination 里给 π₀ / π₀-FAST / π₀.₅ 跑 rollout，排名和真机一致（y = 0.87x − 0.04）
+> 2. **作为 synthetic data 来源**（Figure 9）：合成成功轨迹做 SFT，让 π₀.₅ 在 novel instructions 上的成功率从 38.7% 提到 83.4%（+44.7pp）
+>
+> **核心贡献的工程价值**：把"真机评估 + expert 收集"这套贵的研发循环，**换成了 imagination 里的快速反馈循环**。
+
+---
+
+### 三个最该记住的点
+
+| # | 点 | 一句话 |
+|---|---|---|
+| 1 | **Frame-level cross-attention** | 每帧 visual token 严格对齐该帧的 pose token —— 把 action 注入做到时间精确 |
+| 2 | **Pose-conditioned memory retrieval** | 用稀疏历史帧 + pose 防长 rollout 漂移 |
+| 3 | **WM 作为 policy 工具的两种用法** | Ranker（评估）+ Synthetic data source（改进），都在 ID setting 下被验证 |
+
+---
+
+### 一句话标签
+
+> **Ctrl-World = 把 SVD 改造成的 a 类 AC-WM，主打 closed-loop policy-in-the-loop simulator 用例。**
