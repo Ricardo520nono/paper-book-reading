@@ -134,12 +134,14 @@ Wan paper 流程:                 Uni-WAM 调研流程:
 
 ---
 
-## 📚 已知候选 backlog（脑暴版，待 broad search 后修正）
+## 📚 已知候选 backlog
 
-> 这一部分是开搜前的初步思路，不是最终清单。
+> 持续更新。每读一篇 paper，把它 related work 里发现的新候选**只筛 2023+**（太老不看）加进来，并标注来源。
 
-**确定 / 高概率 a 类**:
-- Ctrl-World (2025/10) ⭐ 翔哥点名
+### 高优先级 / 翔哥点名 + 梦飞先发现
+
+**a 类候选**:
+- ✅ Ctrl-World (2025/10) ⭐ 翔哥点名 · [已读完](notes/Ctrl-World.md)（待写浓缩）
 - Motus (arXiv 2512.13030) ⭐ 梦飞已找到，Wan 待读清单
 - Cosmos Policy (Wan 待读清单提过)
 - DreamGen (NVIDIA, 与 Cosmos 系)
@@ -148,7 +150,40 @@ Wan paper 流程:                 Uni-WAM 调研流程:
 - Cosmos-Predict 2.5 ⭐ 翔哥点名 + 梦飞已找到
 - DreamZero (NVIDIA, Wan 待读清单, 14B World Action Model)
 
-**c/d 类候选 / 待判断**:
+---
+
+### 通过 Ctrl-World §2.2 Related Work 发现的新候选（2023+，筛掉太老）
+
+> 来源：[`VLA-WM/[arXiv 2510.10125] Ctrl-World/sections/02-related-work-acwm.md`](../%5BarXiv%202510.10125%5D%20Ctrl-World/sections/02-related-work-acwm.md)
+
+**🌟 最高优先级**（Ctrl-World method 直接源头）:
+- **Zhu et al. 2024** —— **frame-level action conditioning 起源** ⭐ Ctrl-World 的 action 注入机制就来自这里
+- **He et al. 2025** —— frame-wise cross-attention（Ctrl-World 也直接复用）
+
+**Diffusion-based AC-WM**（近期热门方向）:
+- Quevedo et al. 2025
+- Chen et al. 2024
+- Gao et al. 2025
+- Ren et al. 2025
+- Hafner et al. 2025 —— DreamerV3 latest（前几代 V1/V2 是 2019/2020 太老不读，但 V3 2025 值得读）
+
+**其他 AC-WM 候选**（2023+）:
+- Daydreamer (Wu 2023)
+- Wu 2024（同作者后续工作？待查）
+- Yang 2023（可能是 UniSim，待确认）
+- Huang 2025
+
+**Ctrl-World 也引用、但太老不读**（记录在此防止后面又被引出来重复评估）:
+- ❌ Nagabandi 2020（低维 state space MPC）
+- ❌ DreamerV1 (Hafner 2019) / DreamerV2 (Hafner 2020)
+- ❌ TD-MPC (Hansen 2022)
+- ❌ Oh 2015 ATARI predictive
+- ❌ Finn & Levine 2017, Ebert 2018, Xie 2019, Dasari 2019
+
+---
+
+### c/d 类候选 / 待判断
+
 - Genie 2 / Genie 3 (DeepMind, 多大概率非 AC，但要查清楚)
 - Pandora
 - 1X World Model
@@ -162,13 +197,15 @@ Wan paper 流程:                 Uni-WAM 调研流程:
 - WorldDreamer
 - IWM (Instruction-driven World Model)
 
-**自动驾驶 WM**（待定 —— 看是否有 robot 用例 / generalize）:
+### 自动驾驶 WM（待定 —— 看是否有 robot 用例 / generalize）
+
 - GAIA-1 / GAIA-2 (Wayve)
 - DriveDreamer / DriveDreamer-2
 - Vista
 - ADriver-I
 
-**通用 video gen / 大概率 e 类**:
+### 通用 video gen / 大概率 e 类
+
 - Sora
 - Wan 2.1 / Wan 2.2 (没 numeric AC 直接接口，但 actcon 变体属于 b)
 - HunyuanVideo
