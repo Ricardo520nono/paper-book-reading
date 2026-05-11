@@ -21,15 +21,65 @@
 
 ### Q1：Ctrl-World 的 action 是怎么注入的？（关键，决定它是不是真正的 AC-WM）
 > 答案在 §4.1 "Frame-level Action Conditioning"。
+>
+> **答**：Action 表示是 **Cartesian-space 6D pose**（不是 joint angle，不是 latent action）。注入机制是 **frame-level cross-attention**：在 spatial transformer 内部，**每一帧的 visual token 通过 cross-attention attend 到该帧对应的 pose embedding**。Policy 输出的原始 action 序列 `[a_{t+1:t+H}]` 经过 forward kinematics 等变换转成 Cartesian pose `[a'_{t+1:t+H}]`，再和过去的真实 pose `[q_{t-km}, ..., q_t]` concatenate 喂进 cross-attention。
+>
+> **新增参数**：只有一个 **action-projection MLP**，backbone 是 **Stable Video Diffusion 1.5B**（其他参数 inherit）。
+>
+> → **结论**：是真正的 AC-WM。
 
 ### Q2：Ctrl-World 训练数据来自哪？只有 expert 吗？
 > 答案在 §5.1 Experiment Setups（DROID dataset）。
+>
+> **答**：**不全是 expert**（比预判稍好），但**仍远不够 Uni-WAM 的标准**。
+>
+> 数据集 = **DROID**：95,599 条真机遥操作轨迹，564 个场景。**76k success + 19k failure**。Paper 自己强调 "diverse actions and failure data is crucial"。
+>
+> ⚠️ **关键 nuance**：DROID 的 failure 是 **human-attempted failure**（人类操作时不小心失败的轨迹），仍在 "human-feasible action distribution" 内。
+>
+> 对应 Uni-WAM 5 类的覆盖：
+> - ✅ 部分覆盖 **Perturbed expert** + **Exploratory**（人类失败案例）
+> - ❌ 完全不包含 **Counterfactual / Random-feasible / Adversarial**
 
 ### Q3：Ctrl-World 测过 off-expert / OOD action 吗？
 > 答案在 §5.3 + §6。**这是 Uni-WAM 最关心的 gap**。
+>
+> **答**：**❌ 没测过 action 维度的 OOD**。
+>
+> Ctrl-World 测过的 OOD 都是别的维度：
+> - ✅ **视觉 OOD**：新相机位姿、新场景（§5.3）
+> - ✅ **语言 OOD**：novel instructions（§5.4 + §6）
+> - ❌ **行为 OOD**：测的 3 个 policy（π₀ / π₀-FAST / π₀.₅）都是 **expert-quality VLA**，输出的 action 都在 expert 分布内
+>
+> 🔥 **§5.3 那句关键自承认**：
+> > "some failure trajectories are included in the DROID dataset, there are still **many failure modes outside the data distribution**."
+>
+> → Ctrl-World 自己**明确点出**了这个 gap，但**归为 data engineering 问题**（"收集更多数据填补"），而**不是 method 问题**。§6 Conclusion 里这个 gap **甚至没被升华为 limitation**。
+>
+> → 这就是 Uni-WAM 接住的位置：把 data engineering 问题升级为方法论问题（5 类 off-expert benchmark + IDM 反向正则化）。
 
 ### Q4：Ctrl-World 怎么处理"循环论证"问题？（policy 训练数据 → 评估的 WM 也是这个数据）
 > 关键看 §4.2 + §5.3 如何论证 "WM evaluation ↔ real evaluation" 的一致性。
+>
+> **答**：Ctrl-World **通过 §5.3 的 ranking alignment 实验间接论证**，但**有重大局限**。
+>
+> **实验设定**：
+> - 3 个 policy（π₀ / π₀-FAST / π₀.₅）+ 7 个 task
+> - 真机和 WM 用**相同初始 obs**，分别 rollout
+> - 比较 instruction-following rate 和 success rate
+>
+> **结果**（§5.3 Figure 7 回归方程）：
+> - Instruction-following: **y = 0.87x − 0.04**
+> - Success rate: **y = 0.81x − 0.11**
+>
+> → WM 排名和真机**正相关**，但 WM 偏**悲观**（斜率 < 1，截距 < 0）。
+>
+> ⚠️ **循环论证的"漏洞"**：
+> - 实验用的 3 个 policy 都是 **expert-quality**（行为在 DROID 分布内）
+> - **没有验证**当 policy 偏离 expert 时（如早期 RL checkpoint / sub-optimal policy）alignment 还成立吗
+> - 也就是：**Ctrl-World 只证明了"在 ID setting 下 WM eval ≈ real eval"**，**没证明 "OOD setting 下 WM 仍可信"**
+>
+> → 这是 Uni-WAM 关心的核心质疑：当 policy 跑到 expert 分布外时，循环论证就崩塌了。Ctrl-World 没碰这个角落。
 
 ---
 
