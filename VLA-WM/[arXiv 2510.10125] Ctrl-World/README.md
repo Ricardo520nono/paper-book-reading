@@ -37,18 +37,18 @@
 
 | # | Section | 内容 | Uni-WAM 相关性 | 状态 |
 |---|---|---|---|---|
-| 0 | [00-abstract.md](sections/00-abstract.md) | Abstract | 🔥 必读 | ⏳ 写中 |
-| 1 | [01-introduction.md](sections/01-introduction.md) | Introduction：要解决的问题 + Ctrl-World 自己的 pitch | 🔥 必读 | ⏳ 待写 |
+| 0 | [00-abstract.md](sections/00-abstract.md) | Abstract | 🔥 必读 | ✅ 完成 |
+| 1 | [01-introduction.md](sections/01-introduction.md) | Introduction：要解决的问题 + Ctrl-World 自己的 pitch | 🔥 必读 | ✅ 完成 |
 | 2.1 | ~~02-related-work-videogen.md~~ | Video Generation Models | 选读 | ⏭️ **跳过** |
-| 2.2 | [02-related-work-acwm.md](sections/02-related-work-acwm.md) | Action-Conditioned World Models（看它怎么定位自己 vs 其他 AC-WM）| 🔥 必读 | ⏳ 待写 |
-| 3 | [03-problem-formulation.md](sections/03-problem-formulation.md) | Problem Formulation（W 的输入输出形式定义）| 🔥 必读 | ⏳ 待写 |
-| 4.1 | [04-method-learning.md](sections/04-method-learning.md) | Multi-View + Pose Memory + **Frame-level Action Conditioning** | 🔥🔥 **核心** | ⏳ 待写 |
-| 4.2 | [04-method-policy-eval.md](sections/04-method-policy-eval.md) | Using Ctrl-World for Policy Evaluation and Improvement | 🔥🔥 **核心** | ⏳ 待写 |
-| 5.1 | [05-experiment-setup.md](sections/05-experiment-setup.md) | Setups（DROID 数据 / 训练细节）| 🔥 必读 | ⏳ 待写 |
+| 2.2 | [02-related-work-acwm.md](sections/02-related-work-acwm.md) | Action-Conditioned World Models（看它怎么定位自己 vs 其他 AC-WM）| 🔥 必读 | ✅ 完成 |
+| 3 | [03-problem-formulation.md](sections/03-problem-formulation.md) | Problem Formulation（W 的输入输出形式定义）| 🔥 必读 | ✅ 完成 |
+| 4.1 | [04-method-learning.md](sections/04-method-learning.md) | Multi-View + Pose Memory + **Frame-level Action Conditioning** | 🔥🔥 **核心** | ✅ 完成 |
+| 4.2 | [04-method-policy-eval.md](sections/04-method-policy-eval.md) | Using Ctrl-World for Policy Evaluation and Improvement | 🔥🔥 **核心** | ✅ 完成 |
+| 5.1 | [05-experiment-setup.md](sections/05-experiment-setup.md) | Setups（DROID 数据 / 训练细节）| 🔥 必读 | ✅ 完成 |
 | 5.2 | ~~05-quality-analysis.md~~ | 视觉质量评估 | 选读 | ⏭️ **可跳**（基础指标）|
-| 5.3 | [05-policy-evaluation.md](sections/05-policy-evaluation.md) | 实测：WM 评估 vs 真机评估 排名一致性 | 🔥🔥 **核心** | ⏳ 待写 |
+| 5.3 | [05-policy-evaluation.md](sections/05-policy-evaluation.md) | 实测：WM 评估 vs 真机评估 排名一致性 | 🔥🔥 **核心** | ✅ 完成 |
 | 5.4 | ~~05-policy-improvement.md~~ | 用 WM 造合成数据训 policy（在 π0.5 上做了实验）| 选读 | ⏭️ **可跳**（不影响 a 类判断）|
-| 6 | [06-conclusion.md](sections/06-conclusion.md) | Conclusion + Limitations | 🔥 必读 | ⏳ 待写 |
+| 6 | [06-conclusion.md](sections/06-conclusion.md) | Conclusion + Limitations | 🔥 必读 | ✅ 完成 |
 
 **Push 策略**：只 push 上面 🔥 标记的 section，跳过的不写。
 
