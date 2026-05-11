@@ -13,8 +13,10 @@
 - [x] 研究动机（用途 1：推理时 prefilter / 用途 2：训练时 DAgger 伪 oracle）
 - [x] 核心观察（4 部分：训练数据偏倚 / Cosmos-Predict2.5 初测 / 理论-实践矛盾 / Circular reasoning）
 - [x] 核心故事 · Motivation 子节（术语切换 + 5 类 off-expert 分层）
-- [x] **核心故事 · Action 采样 + Obs 采样**⬅ 当前
-- [ ] 核心故事 · Gated Metrics（GPR + TA）
+- [x] 核心故事 · Action 采样 + Obs 采样
+- [x] **核心故事 · Gated Metrics（GPR + TA）**⬅ 当前
+- [ ] Model architecture（MoT + Wan2.2-TI2V-5B + Qwen3-VL-4B + Shared Attention）
+- [ ] Data Pipeline
 - [ ] Model architecture（MoT + Wan2.2-TI2V-5B + Qwen3-VL-4B + Shared Attention）
 - [ ] Data Pipeline
 
@@ -309,3 +311,203 @@
 1. "dynamics" 不是孤立能力，它有 conditioning 分布。WM 学的是"在某个 obs 分布上的 dynamics"
 2. On-policy / off-policy obs 区分的是 **conditioning 分布**，不是 dynamics 本身
 3. Policy 评估必须用 off-policy obs，因为 policy rollout 的常态就是偏离 expert
+
+---
+
+## 核心故事 · Gated Metrics（GPR + TA）
+
+### 1. 为什么需要 Gated 架构
+
+朴素 metric（直接算视觉相似度，如 PSNR/LPIPS/FVD）对 AC-WM **不够用**：
+
+- **Bug 1：视觉好看 ≠ action follow 对**
+  - WM 可以画出"清晰、物理合理"的视频，但完全无视 action（伪造 expert 行为）
+  - 朴素 metric 给高分 → 错误结论
+- **Bug 2：视觉崩溃时算"轨迹精度"无意义**
+  - 机械臂都消失/穿模了，再去算"末端轨迹对齐度"纯属噪声
+
+**解法：Gated 打分**
+
+```
+video V
+  ↓
+Gate: 视觉合理吗？(GPR check)
+  ├ Pass → 算 TA
+  └ Fail → TA = 0
+```
+
+**核心思想**：**视觉合理性是"准入资格"，不是"评分维度"** —— 像考试有及格线，没过线直接 0 分。
+
+### 2. 7-Step 评估 Pipeline
+
+| Step | 做什么 |
+|---|---|
+| 1 | 选定 task 集合 T |
+| 2 | 每个 task 采样 N_obs 个 obs（分 on-policy / off-policy）|
+| 3 | 每个 obs 按 5 类 off-expert × 强度等级采样 N_act 个 action chunk |
+| 4 | 每个 (o, a) 让 WM 生成视频 V，总样本数 = \|T\| × N_obs × N_act |
+| 5 | 每个 V 过 Visual Integrity Gate → pass/fail |
+| 6 | Pass 算 TA；Fail TA = 0 |
+| 7 | 按多维度聚合，输出 scoreboard |
+
+数字感：5 任务 × 100 obs × 50 action = **25,000 个 video**。
+
+### 3. Visual Integrity Gate（GPR = Gate Pass Rate）
+
+**借用 WorldArena 成熟指标 + 阈值化**（不重新发明轮子）。5 个 component：
+
+| Component | 借用指标 | 测什么 | 用法 |
+|---|---|---|---|
+| 主体存在性 | Subject Consistency (DINO)| 机械臂在视频中是否始终存在 + 同一性 | 阈值化 |
+| 末端可提取性 | SAM3 bbox 提取成功率 | 能不能找到 gripper（TA 的前置条件）| **二值**（100% 才 pass）|
+| 物理交互合理性 | Interaction Quality (Qwen3-VL)| 接触/抓取/碰撞符不符合物理常识 | 阈值化 |
+| 背景稳定性 | Background Consistency (CLIP)| 桌子/墙/灯光稳不稳 | 阈值化 |
+| VLM binary check | "机械臂始终完整存在？" | catch-all 兜底 | Qwen3-VL yes/no |
+
+**新引入的工具**：
+- **DINO**：Meta 自监督 ViT，提 dense feature 用于"主体一致性"判断
+- **SAM3**：Segment Anything v3，零样本分割 → bbox 提取
+- **Qwen3-VL**：阿里通义 VLM，做物理合理性判分 + 兜底
+- **CLIP**：已学，背景区域 feature 提取
+
+**GPR 计算**：5 个 component **全部 pass** 才算 GPR pass；GPR = pass 样本数 / 总样本数。
+
+### 4. TA（Trajectory Accuracy）—— WorldArena 数学
+
+#### Pipeline
+
+| Step | 做什么 |
+|---|---|
+| 1 | SAM3 每帧检测机械臂 bbox → NMS + 置信度过滤 → bbox 中心 = 末端位置 |
+| 2 | 对 GT video 同样处理 |
+| 3 | 漏检帧用线性插值补 |
+| 4 | 用 NDTW 算两条轨迹的对齐度 |
+| 5 | 取倒数 → 归一化到 [0, 1] |
+
+#### 线性插值（公式 14）
+
+$$p_i = (1-\alpha) p_{prev} + \alpha p_{next}, \quad \alpha = (i-prev)/(next-prev)$$
+
+人话：漏检的第 i 帧，按时间比例在前后两个有效帧之间画直线插值。
+
+#### NDTW（公式 15）—— 核心
+
+$$\text{NDTW}(GT, P) = \min_\pi \frac{1}{|R|} \sqrt{\sum_{(i,j) \in \pi} \|r_i - p_j\|^2}$$
+
+| 符号 | 含义 |
+|---|---|
+| π | 一个对齐路径（把 GT 第 i 帧和 P 第 j 帧配对）|
+| (i,j) ∈ π | 路径上的配对点 |
+| \|\|r_i - p_j\|\|² | 配对点的欧氏距离平方 |
+| sum + sqrt | 累积距离取 L2 |
+| 1/\|R\| | 按 GT 长度归一化（"N"的来源）|
+| min_π | 在所有可能路径里挑距离最小的（DTW 的精髓）|
+
+**DTW 的核心价值**：允许"时间错位"。
+- GT 第 5 帧到点 A，P 第 7 帧才到点 A
+- 朴素帧对齐 → 算出错误的大距离
+- DTW 把它们对齐起来，承认"位置对，时间错"
+- 动态规划求最优路径，复杂度 O(\|R\| × \|P\|)
+
+#### 取倒数 + 归一化（公式 16）
+
+$$S_{traj\_raw} = 1 / \text{NDTW}(GT, P)$$
+
+NDTW 越小越好 → 取倒数变成"越大越好" → 再归一化到 [0,1] = 最终 **S_traj**。
+
+#### TA 的物理意义
+
+> TA ≈ 1：WM 预测的末端轨迹和 GT 几乎重合 → action follow 得很好
+> TA ≈ 0：两条轨迹差很远 → WM 没 follow action
+
+### 5. 翔哥 vs WorldArena 的差异
+
+| 维度 | WorldArena | 翔哥 Uni-WAM |
+|---|---|---|
+| TA 公式 | 一样 | 直接复用 |
+| 用途 | 单独打分 | **Gate pass 才算**（Fail → TA = 0）|
+| 组合 | 和其他 19 个 metric 加权 | 只配 GPR 用 |
+
+**翔哥的创新 ≠ 新公式，而是新用法**（Gated 架构）。
+
+### 6. Scoreboard 结构
+
+输出按 (off-expert 类别 × obs 类别) 交叉，每个 cell 报告 GPR 和 TA：
+
+| | On-policy obs | Off-policy obs |
+|---|---|---|
+| Perturbed expert | GPR=X1, TA=Y1 | GPR=X2, TA=Y2 |
+| Counterfactual | GPR=X3, TA=Y3 | GPR=X4, TA=Y4 |
+| Exploratory | ... | ... |
+| Random-feasible | ... | ... |
+
+Reviewer 一眼能看出 WM 在哪个 cell 崩盘。
+
+---
+
+## 🔥 拷打记录（Q3 系列，格式 B：题+答一起给）
+
+### Q3.1（格式 B）
+
+**问**：Gated 架构的核心思想是"视觉合理性是准入资格，不是评分维度"。为什么不能直接把"视觉合理性"和"轨迹精度"加权求和成一个分数？
+
+**答**：
+
+> 加权求和会让"视觉好但 action 不 follow"的 WM（WM 类型 B）混进高分区。
+>
+> 例：加权 score = 0.5×视觉 + 0.5×轨迹。WM B 视觉满分 1.0，轨迹 0.0（完全没 follow，只是画 expert 行为）→ 加权 score = 0.5 → **看起来过关**。但 WM B 是对 AC-WM **最致命的失败模式**（伪造）。
+>
+> **Gated 架构**：视觉不合格直接 0 分，绝不让"视觉好但作弊"的 WM 蒙混过关。
+>
+> **设计原理**：当两个指标存在**因果依赖**（视觉合理是轨迹精度有意义的前提），它们**不应该加权**，而应该**串行**。加权假设独立，串行承认有先后。
+
+---
+
+### Q3.2（格式 B）
+
+**问**：5 个 gate component 里，"末端可提取性"用二值判断（要么 100% pass 要么 fail），其他 4 个用阈值化。为什么这个要这么严格？
+
+**答**：
+
+> **末端可提取性是下游 TA 计算的前提条件**。
+>
+> TA 依赖 SAM3 提取末端轨迹。任意一帧提取失败 → 轨迹缺点 → 要么补漏（污染数据）要么截断（丢信息）→ NDTW 计算建立在不完整数据上 → TA 不可靠。
+>
+> 其他 4 个 gate 是**对视频本身质量的判断**，缺一点不影响 TA 计算 → 阈值化够用。
+>
+> **设计哲学**：Gate component 的严格程度取决于它对下游 metric 的依赖类型 —— **软依赖用阈值，硬依赖用二值**。
+
+---
+
+### Q3.3（格式 B）⭐
+
+**问**：翔哥设计成"gate fail → TA = 0"，而不是"gate fail → 这个样本不计入平均"。差别在哪？为什么前者更安全？
+
+**答**：
+
+> | 设计 | "TA = 0" | "不计入" |
+> |---|---|---|
+> | 数学含义 | fail 拉低平均 | fail 消失 |
+> | 行为激励 | 鼓励 WM 全样本合理 | 允许"战略性崩坏" |
+> | 攻击者视角 | 无法逃避 | 可被 exploit |
+>
+> **"不计入"的攻击场景**：WM 发现自己 follow 不了 counterfactual action，**故意把这些样本视频生成崩**（gate 必 fail）→ counterfactual 被丢弃 → 平均 TA 只剩 WM 擅长的 perturbed 样本 → **平均分被拉高**。
+>
+> 这是 **metric gaming** 的经典 pattern：**给"失败"一个出口，它就会被滥用**。
+>
+> **"TA = 0" 的安全性**：视觉崩坏 = 失败，必须计入坏分。WM 无法通过"崩坏"逃避。唯一拿高分的路径 = **既视觉合理又 action follow**。
+>
+> **通用设计哲学**：当你设计 metric 时，**永远问"如果 WM 故意作弊，哪里有空子可钻"**。Metric 必须把所有"作弊路径"都堵死，让"做对事"成为唯一拿高分的路径。同样原则适用于 RL reward shaping、benchmark 设计、考试制度设计。
+
+---
+
+## 📌 本节小结
+
+| 关键概念 | 一句话 |
+|---|---|
+| Gated 架构 | 视觉合理性是准入门，过了再算精度，没过零分 |
+| GPR（5 component）| Subject(DINO) + 末端(SAM3) + 物理(Qwen3-VL) + 背景(CLIP) + VLM 兜底，全 pass 才算 |
+| TA 数学 | SAM3 → 末端中心点 → 线性插值补漏 → NDTW（允许时间错位的距离）→ 取倒数归一化 |
+| NDTW 精髓 | DTW 允许两条轨迹"时间错位对齐"，比朴素帧对齐更宽容 |
+| 翔哥的创新 | **不是新公式，是新用法** —— Gated 架构 |
+| Metric gaming 防御 | Fail → 0 分而不是不计入，堵死作弊路径 |
