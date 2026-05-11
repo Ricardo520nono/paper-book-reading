@@ -62,6 +62,10 @@ WM 在长 rollout 时误差累积 → drift / 不连贯。**解法**：
 
 ## ¶4 · 组件 3：Frame-level Action Conditioning 🔥🔥（决定一切的关键）
 
+> 💡 **基础概念**：什么是 AC-WM、action 注入有哪几种方式、为什么"架构层能喂 ≠ 训练层能消化" —— 详见 [`_concepts/action-conditioned-wm.md`](../../../_concepts/action-conditioned-wm.md)
+
+
+
 > "The pretrained video model conditions only on text and image, which limits its control precision. To enable full controllability, we additionally **condition the model on the action sequence $[a_{t+1:t+H}]$** output by the policy. We also **transform each action sequence into Cartesian-space robot arm poses $[a'_{t+1:t+H}]$** and concatenate with past poses $[q_{t-km}, ..., q_{t-m}, q_t]$. **Frame-wise cross-attention** (Zhu et al., 2024; He et al., 2025) is then applied within the spatial transformer, allowing the visual tokens of each frame to attend to its associated pose embedding. For history frames, this pose corresponds to $[q_{t-km}, ..., q_{t-m}, q_t]$, while for future frames, it corresponds to $[a'_{t+1:t+H}]$."
 
 **翻译**：
