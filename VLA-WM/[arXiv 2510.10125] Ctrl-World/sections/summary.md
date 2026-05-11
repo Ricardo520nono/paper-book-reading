@@ -262,4 +262,103 @@ Cross-attention 的计算量：
 
 ---
 
+## 4. 实验：到底 work 不 work？
+
+讲完 method 自然要问："实验证明这套架构 work 吗？" Ctrl-World 给了**两组关键证据**，对应它的两个 use case。
+
+---
+
+### 4.1 实验 setup（速看）
+
+| 维度 | 内容 |
+|---|---|
+| 测的 policy | **3 个公开 VLA**：π₀ / π₀-FAST / π₀.₅ |
+| 测的 task | 7 个：Pick-Place / Fold-Towel / Drawer / Wipe-Table / Close-Laptop / Pull-tissue / Stack |
+| 对照方式 | 真机和 WM 用**相同初始 obs** 分别 rollout，看 metric 是否一致 |
+| 评测指标 | Instruction-following rate + Success rate |
+
+⚠️ **关键 nuance**：测的 3 个 policy **都是 expert-quality 的 SOTA VLA**（来自 Physical Intelligence）。**没测 sub-optimal policy**。
+
+---
+
+### 4.2 实验结果 1：Policy Evaluation 排名一致 ✅
+
+![](../images/figure-07.png)
+
+**怎么看这张图**：
+- 横轴 = **真机**上的指标
+- 纵轴 = **WM imagination** 里的指标
+- 颜色 = policy（蓝 π₀ / 黄 π₀-FAST / 绿 π₀.₅）
+- 形状 = task（● Pick-Place / ▲ Fold-Towel / ■ Drawer / ◆ Wipe-table / + Close-laptop / ★ Pull-tissue / × Stack）
+- **黑虚线** = 实测回归方程；**灰细线** = oracle（y=x）
+
+**核心数字**：
+
+| 指标 | 回归方程 | 解读 |
+|---|---|---|
+| Instruction Following | **y = 0.87x − 0.04** | WM 上的指令跟随率 ≈ 87% × 真机率，整体接近 oracle |
+| Success Rate | **y = 0.81x − 0.11** | 成功率相关性稍弱（斜率 0.81，截距 -0.11）|
+
+**直觉解读**：
+- ✅ **斜率正且接近 1**：WM 排名**单调一致** —— 真机里好的 policy，WM 里也好；差的也差。**作为 ranker 可用**
+- ⚠️ **斜率 < 1 + 截距 < 0**：WM 系统性**偏悲观**，低估了 policy 真实表现
+- ⚠️ **Success Rate 比 Instruction Following 差**：复杂物理交互（碰撞 / 抓取细节）WM 模拟不精
+
+---
+
+### 4.3 实验结果 2：Policy Improvement 提升 44.7% ✅
+
+![](../images/figure-09.png)
+
+**实验做了什么**：
+1. 拿 π₀.₅ 作为 base policy
+2. 用 WM 在 4 个 downstream task 上合成 trajectory（rephrase instruction + 随机初始位置增加多样性）
+3. 留下**人类判断为成功**的 25-50 条/task
+4. 用这些合成 trajectory 做 SFT
+5. 对比 base 和 finetuned policy 在真机上的成功率
+
+**结果（每个 task 浅绿 vs 深绿）**：
+
+| Task | Base | Finetuned | 提升 |
+|---|---|---|---|
+| Spatial Understanding | 0.29 | 0.88 | +59pp |
+| Shape Understanding | 0.44 | 0.91 | +47pp |
+| Towel-Folding Direction | 0.57 | 0.80 | +23pp |
+| New Object | 0.25 | 0.75 | +50pp |
+| **Average** | **0.39** | **0.83** | **+44.7pp** |
+
+**结论**：合成的 successful trajectory 真的能让 policy 在 unseen object / novel instruction 上变强 —— **WM 作为 synthetic data source 可用**。
+
+---
+
+### 4.4 实验整体 takeaway
+
+Ctrl-World 验证了它的两个 use case 都**在 ID setting 下 work**：
+
+| Use case | 证据 | 状态 |
+|---|---|---|
+| Policy Evaluation | Figure 7：ranking alignment 0.87 / 0.81 | ✅ work（在 expert-quality policy 之间）|
+| Policy Improvement | Figure 9：+44.7% on novel instructions | ✅ work（在 novel instruction / object 上）|
+
+---
+
+### 🔥 Uni-WAM 视角的关键观察
+
+读完 §4 实验，**对照 Uni-WAM 关心的问题**：
+
+| Uni-WAM 问 | Ctrl-World 测的 | 缺什么 |
+|---|---|---|
+| "OOD policy（如早期 RL checkpoint）能 rank 对吗？" | 3 个都是 SOTA expert-quality policy | ❌ 没测 sub-optimal policy |
+| "off-expert action（counterfactual / random）下 WM 还合理吗？" | policy 自主输出的 action 都在 expert 分布内 | ❌ 没直接喂 off-expert action |
+| "Failure trajectory 的合成能用吗？" | 只用 successful synthetic trajectory | ❌ 完全跳过 failure |
+
+→ **Ctrl-World 验证了"ID setting 下 WM work"**，**没验证"OOD action setting 下 WM 还 work 吗"**。这正是 Uni-WAM 接住的 gap。
+
+⚠️ **§5.3 paper 自己有一句关键自承认**（在 sections/05-policy-evaluation.md 详细记录）：
+> "some failure trajectories are included in the DROID dataset, **there are still many failure modes outside the data distribution**"
+
+→ Ctrl-World 知道这个问题，但**归为 data engineering**（"收集更多数据"），不是 method 问题。Uni-WAM 把它升级为方法论问题。
+
+---
+
 > 后续点位等 Ricardo 指定再补 ⏳
