@@ -14,9 +14,9 @@
 - [x] 核心观察（4 部分：训练数据偏倚 / Cosmos-Predict2.5 初测 / 理论-实践矛盾 / Circular reasoning）
 - [x] 核心故事 · Motivation 子节（术语切换 + 5 类 off-expert 分层）
 - [x] 核心故事 · Action 采样 + Obs 采样
-- [x] **核心故事 · Gated Metrics（GPR + TA）**⬅ 当前
-- [ ] Model architecture（MoT + Wan2.2-TI2V-5B + Qwen3-VL-4B + Shared Attention）
-- [ ] Data Pipeline
+- [x] 核心故事 · Gated Metrics（GPR + TA）
+- [x] **Model architecture（MoT + Shared Attention + 一体化）**⬅ 当前
+- [x] **Data Pipeline（仿真器 + Cosmos-Transfer）**⬅ 当前
 - [ ] Model architecture（MoT + Wan2.2-TI2V-5B + Qwen3-VL-4B + Shared Attention）
 - [ ] Data Pipeline
 
@@ -511,3 +511,272 @@ Reviewer 一眼能看出 WM 在哪个 cell 崩盘。
 | NDTW 精髓 | DTW 允许两条轨迹"时间错位对齐"，比朴素帧对齐更宽容 |
 | 翔哥的创新 | **不是新公式，是新用法** —— Gated 架构 |
 | Metric gaming 防御 | Fail → 0 分而不是不计入，堵死作弊路径 |
+
+---
+
+## Model Architecture（MoT 框架）
+
+### 1. 一句话总览
+
+> 把**视频生成**和**动作预测**统一到一个 **Mixture-of-Transformers (MoT)** 框架里
+
+### 2. MoT vs MoE 区别
+
+| | Mixture-of-Experts (MoE)| Mixture-of-Transformers (MoT)|
+|---|---|---|
+| 谁是 "expert"| 模型内部的 FFN 子模块 | **一整个 Transformer**（不同模态）|
+| 怎么切换 | 输入路由（按 token 选 FFN）| 不同分支并行 + 部分参数共享 |
+| 例子 | Wan2.2 高/低噪双专家 | 翔哥这里：视频生成分支 + 动作分支 |
+
+### 3. 两个分支
+
+| 分支 | 模型 | 角色 |
+|---|---|---|
+| **生成分支** | Wan2.2-TI2V-5B（DiT 30 层 + flow matching，5B Dense）| WM（world model）：(obs, action) → next_obs video |
+| **动作分支** | Qwen3-VL-4B（VLM backbone + 连续 action chunk flow matching）| VLA policy / IDM |
+
+**为什么动作分支用 Qwen3-VL 而不是纯 action transformer？**
+- Action prediction 需要"理解 obs 语义"（看红方块在哪 → 才知道往哪伸）
+- VLM 现成的 vision-language 能力可复用，省去重训 vision encoder
+
+### 4. 深度耦合：Shared Attention（QKV 共享）
+
+**做法**：前 N 层（如 N=10）的 attention，两个分支**共享 Q/K/V 权重**；后面各自独立。
+
+**为什么共享 QKV ≈ "深度耦合"？**
+- QKV 决定了"模型如何看输入"
+- 共享 QKV → 两个分支用**相同视角**观察输入
+- 强迫底层达成"对场景的共同理解"
+- 上层再分化做不同任务
+
+**优势**：
+- ✅ 参数共享（前 N 层不复制两份）
+- ✅ 信息流通（视频与动作表征互相校准）
+- ✅ **底层共识 + 上层专精**（多任务架构经典套路）
+
+### 5. 双独立 timestep 采样器
+
+Flow matching 需要在 t=0→1 之间多步迭代。**双独立 timestep** = 两个分支各自有自己的 t，可以独立调度迭代次数。
+
+**为什么这样设计？**
+- 视频生成：高维 + 复杂结构 → 需要多步去噪
+- 动作预测：低维 + 平滑 → 少量步骤就够
+
+**类比**：两个并行渲染线程，各自调整渲染精度，不绑死在同一个时钟。
+
+### 6. 一体化模型（一份权重 × 4 种用法）
+
+| 用法 | 输入 | 输出 | 角色 |
+|---|---|---|---|
+| **VLA** | obs + language | action | 标准 VLA policy |
+| **WM** | obs + action | next_obs (video)| world model（正向）|
+| **IDM** | obs + next_obs | action | inverse dynamics model（逆向）|
+| **VLA + WM joint** | obs + language | action AND next_obs | 同时输出动作 + 想象未来（planning）|
+
+**关键概念：IDM（Inverse Dynamics Model）**
+
+| 方向 | 输入→输出 |
+|---|---|
+| **WM**（正向）| (obs, action) → next_obs |
+| **IDM**（逆向）| (obs, next_obs) → action |
+
+**一套权重做多任务的机制**：
+- 训练时联合训练（混合 batch）
+- 推理时**改变采样策略**（哪些输入给定 / 哪些要生成）
+- Flow matching 的灵活性允许"给定一些维度，生成另一些维度"
+
+### 7. 与 Action Following 的连接（翔哥标 TODO）
+
+> **TODO**：补强 argument，说明为什么该架构 specifically 增强 action following
+> **候选方向**：动作分支让 IDM 能力反向正则化 WM，迫使其学习真正的 action→obs 映射，而非 (s, a, s') 配对记忆
+
+**核心 hypothesis 链**：
+
+```
+WM 训练目标：(obs, action) → next_obs
+  → 容易记 (s, a, s') pair（circular reasoning 第三种形式）
+
+IDM 训练目标：(obs, next_obs) → action
+  → 必须"理解"前后帧差异才能反推 action
+
+联合训练 + 共享权重：
+  IDM 必须从 next_obs 推出 action
+  → 模型必须真把 action 信息编码进 next_obs
+  → WM 部分不能"看 obs 就照搬 expert next_obs"
+
+反向约束 = 正则化：
+  WM 被迫学"真正的 action→obs 映射"，不能再记 pair
+```
+
+**类比**：加密器（WM）+ 解密器（IDM）配套训练 —— 加密器如果偷懒不编码 action，解密器就推不出来。
+
+**翔哥标 TODO 的原因**：argument 还需补强（数学上正则化强度难量化，IDM 也可能用 obs-pair pattern 作弊推 action）。
+
+---
+
+## Data Pipeline
+
+### 1. 四步骤
+
+> 1. 仿真器中按采样 off-expert action chunks
+> 2. Replay 得到 (sim_obs, action, sim_next_obs)
+> 3. Cosmos-Transfer 迁移到真实视觉风格
+> 4. 输出 (real_style_obs, action, real_style_next_obs) 用于 WM 训练
+
+### 2. 为什么需要这条 pipeline
+
+**核心问题**：训练 WM 需要 **(obs, action, next_obs) 三元组**，且必须覆盖 off-expert action。
+
+真实机器人数据的问题：
+- ❌ 只有 expert demo（没有 off-expert）
+- ❌ 让真机做 off-expert action 太危险
+- ❌ 标注成本高
+
+**翔哥的解法**：仿真器造数据 + sim-to-real 视觉迁移。
+
+### 3. 四步骤详解
+
+| Step | 做什么 | 关键工具 |
+|---|---|---|
+| 1 | 用 A+B 采样方案生成 5 类 off-expert action chunk | Isaac Sim / MuJoCo / Habitat |
+| 2 | 仿真器里 replay action → 得到 (sim_obs, action, sim_next_obs)| 物理仿真器 |
+| 3 | 用 Cosmos-Transfer 把仿真图像迁移成真实视觉风格 | NVIDIA **Cosmos-Transfer** |
+| 4 | 输出 (real_style_obs, action, real_style_next_obs) 训 WM | - |
+
+### 4. Cosmos-Transfer 的角色
+
+**问题**：仿真渲染图像"塑料感"明显（光照不真实/材质简单/缺阴影反射）→ WM 训在仿真图像上没法迁移到真机。
+
+**Cosmos-Transfer 的本质**：**保结构换皮肤**
+- 输入：仿真"塑料感"图像
+- 输出：看起来像真实摄像头拍的图像
+- 关键：**保留几何 + 动作**，**只改视觉风格**
+
+**为什么这个分工可行？**
+- 仿真器在**物理几何 + 动力学**上是对的（接触点、运动轨迹正确）
+- 仿真器在**视觉真实感**上差
+- Cosmos-Transfer 专补这个差距
+
+### 5. 这条 pipeline 的设计哲学
+
+**本质**：
+> **用仿真器换"动作分布广度"，用 Cosmos-Transfer 换"视觉真实感"** —— 两者结合解锁 "off-expert + photo-real" 训练数据。
+
+| 方案 | 动作分布广度 | 视觉真实感 |
+|---|---|---|
+| 真机 finetune | ❌ 只有 expert | ✅ 真实 |
+| 仿真器 only | ✅ 任意 off-expert | ❌ 塑料感 |
+| **仿真 + Cosmos-Transfer** ⭐ | ✅ 任意 off-expert | ✅ 真实 |
+
+### 6. 风险点
+
+- ⚠️ Cosmos-Transfer 本身有 distribution shift（迁移后仍有 sim-real gap）
+- ⚠️ 仿真器物理保真度有限（流体/变形/复杂接触）
+- ⚠️ Pipeline 不端到端，每步误差累积
+
+---
+
+## 🔥 拷打记录（Q4 系列，格式 B：题+答一起给）
+
+### Q4.1（架构核心）
+
+**问**：为什么是"共享 QKV"而不是"共享 FFN"或"直接拼成一个大 Transformer"？
+
+**答**：
+
+> **QKV 决定了"模型如何看输入"** —— 共享 QKV = 强迫两个分支用相同视角观察输入。
+>
+> | 方案 | 含义 | 问题 |
+> |---|---|---|
+> | 拼大 Transformer | 完全合并 | 任务冲突，互相干扰 |
+> | 共享 FFN | 共享变换层，视角各自独立 | 底层就分叉 → 后期对齐困难 |
+> | **共享 QKV** ⭐ | 视角统一 + 变换独立 | **底层共识 + 上层专精** |
+>
+> **底层共识 + 上层专精**是多模态多任务架构的经典设计原则。
+
+---
+
+### Q4.2（IDM 反向正则化）⭐
+
+**问**：为什么 IDM 训练好了，反过来能"治"WM 记 pair 的毛病？
+
+**答**：
+
+> **机制**：IDM 必须从 (obs, next_obs) 反推 action → 这要求 next_obs **真的包含 action 信息**。如果 WM 只记 pair（看 obs 就照搬 expert next_obs，忽略 action）→ next_obs 里没有 action 信号 → IDM 推不出来 → 联合训练时 IDM loss 高 → 反向梯度强迫 WM 把 action 信息**真的编码进** next_obs。
+>
+> **类比**：
+> - WM = 加密器：(obs, action) → next_obs（含密文）
+> - IDM = 解密器：(obs, next_obs) → action
+> - 加密器偷懒不编码 action → 解密器无法工作
+> - 联合训练 = 加密+解密配套 → 加密器必须真编码
+>
+> **直击 circular reasoning 的根**：WM 单训时可"记 pair"，加入 IDM 后 **(s, s') → a 这条逆向通路必须存在** → 强迫学 action↔obs 真实因果关系。
+>
+> **翔哥标 TODO 因为**：正则化强度难量化；IDM 也可能用 obs-pair pattern 作弊推 action。
+
+---
+
+### Q4.3（Data pipeline 设计哲学）
+
+**问**：为什么不直接训 video diffusion model 在真机数据上 finetune？翔哥这套 pipeline 的本质优势是什么？
+
+**答**：
+
+> **本质优势：解耦"动作分布广度"和"视觉真实感"两个独立目标**。
+>
+> | 方案 | 动作广度 | 视觉真实 |
+> |---|---|---|
+> | 真机 finetune | ❌ | ✅ |
+> | 仿真 only | ✅ | ❌ |
+> | **仿真 + Cosmos-Transfer** ⭐ | ✅ | ✅ |
+>
+> 两个目标在原始数据源上不可兼得：真机视觉真但动作受限，仿真动作任意但视觉差。Cosmos-Transfer 是**这个 trade-off 的 bypass**。
+>
+> **核心 insight**：
+> > 当两个目标在原始数据源上不可兼得时，**解耦成两个独立步骤**，分别用最擅长的工具解决。
+>
+> **同类例子**：
+> - GAN：generator + discriminator 分开训
+> - 大模型：pretrain（通识）+ posttrain（品味）分开
+> - Sim-to-real RL：仿真学 policy + 真机微调
+
+---
+
+## 📌 Model + Data 小结
+
+| 关键概念 | 一句话 |
+|---|---|
+| MoT | Mixture-of-Transformers：不同模态各一个 Transformer + 部分共享，区别于 MoE 的 FFN 路由 |
+| Shared Attention | 前 N 层 QKV 共享 → 底层共识 + 上层专精 |
+| 双 timestep | 两分支独立调度 flow matching 迭代步数 |
+| 一体化 4 用法 | VLA / WM / IDM / VLA+WM joint，一份权重切换采样策略 |
+| IDM 反向正则化 | 加密+解密配套训，强迫 WM 真编码 action 而非记 pair（TODO 论证）|
+| Data pipeline | 仿真器解锁动作广度 + Cosmos-Transfer 解锁视觉真实 = 既要又要 |
+| 解耦目标设计哲学 | 不可兼得的两目标分开解决，trade-off bypass |
+
+---
+
+## 🎓 Proposal 整体闭环
+
+到此为止，翔哥 proposal v2 的核心内容全部讲完。整体逻辑：
+
+```
+研究动机
+  ↓
+核心观察（WM 记 pair 而非学 dynamics）
+  ↓
+核心故事：Benchmark Action Following Fidelity
+  ├─ Motivation（off-expert 术语 + 5 类分层）
+  ├─ Action 采样（A+B 方案）
+  ├─ Obs 采样（on/off-policy）
+  └─ Gated Metrics（GPR + TA）
+  ↓
+Model architecture（MoT + Shared Attention + 一体化）
+  ↓
+Data Pipeline（仿真 + Cosmos-Transfer）
+  ↓
+[下一步：开搜 AC-WM survey]
+```
+
+**贯穿全文的核心论证**：
+> WM 记 pair → 评估 policy 时循环论证 → 必须用 off-expert action 暴露 → 设计 Action Following Fidelity benchmark → 用 Gated Metrics 严格打分 → 用 MoT + IDM 反向正则化训出真 WM → 用仿真+Cosmos-Transfer 解锁训练数据
