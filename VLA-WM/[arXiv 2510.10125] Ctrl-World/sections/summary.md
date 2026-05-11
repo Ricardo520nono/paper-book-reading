@@ -75,6 +75,75 @@ WM 旁边的 **Memory**（绿块）是 Ctrl-World 的关键工程组件 —— *
 
 ---
 
+## 🔄 前置认知：Ctrl-World 是怎么来的
+
+在进入核心方法（Figure 2 架构）之前，先理解一个关键关系：**Ctrl-World 不是从头训练出来的，它是从 SVD 改造 + 训练得到的**。
+
+### 流程图
+
+```
+                    起点：SVD 1.5B
+            （Stable Video Diffusion，passive T2V/I2V）
+                          ↓
+       Ctrl-World 团队做了"改造 + 训练"两步:
+                          ↓
+   ┌─────────────────────────────────────────┐
+   │  改造（架构层）                          │
+   │  ├─ 加 action-projection MLP            │
+   │  ├─ 加 frame-level cross-attention      │
+   │  ├─ 加多视角联合预测                     │
+   │  └─ 加 pose-conditioned memory          │
+   └─────────────────────────────────────────┘
+                          ↓
+   ┌─────────────────────────────────────────┐
+   │  训练（数据层）                          │
+   │  在 DROID 95k 真机轨迹上 fine-tune      │
+   │  Loss = diffusion loss                  │
+   └─────────────────────────────────────────┘
+                          ↓
+                    终点：Ctrl-World
+                  （a 类 AC-WM）
+```
+
+### 这揭示了它为什么是 a + b 双重身份
+
+| 看哪一头 | 对应分类 |
+|---|---|
+| **"它本身就是一个 AC-WM"**（看训练完的产物）| **a 类** —— 拿现成 model 就能 evaluate policy |
+| **"它是由 SVD 训练过来得到的"**（看 finetune pipeline）| **b 类** —— repo 开源 finetune 代码，别人能跟着同样流程把 SVD 改造成自己数据上的 AC-WM |
+
+- 你**下载 Ctrl-World 模型直接用** → 用的是 **a 类身份**
+- 你**用它的 finetune 代码把 SVD 改造到自己数据上** → 用的是 **b 类身份**
+
+→ 同一个 repo 提供两种用法（已通过 GitHub 源码确认：`scripts/train_wm.py` + `config.py` + "Pre-Training/Post-training" 章节完整）。
+
+### ⚠️ 一个易混淆点：SVD 不是 WM，只是 video generator
+
+| 名词 | 是什么 | 接 action 吗 |
+|---|---|---|
+| **SVD** (Stable Video Diffusion) | **被动视频生成器**（给图 + 文，生成视频）| ❌ 不接 |
+| **Ctrl-World** | **主动 AC-WM**（给图 + action，生成执行后的视频）| ✅ 接 |
+
+→ **SVD 本身不是 WM**，是 video generator。"改造 + 训练"这一步把它从"导演"改造成了"动捕渲染器"。
+→ **SVD 提供"画视频"的能力，Ctrl-World 在此基础上加了"听 action 的耳朵"**。
+
+### 🔥 这也是 Uni-WAM proposal 的同款路径
+
+回顾翔哥 proposal 的 Model architecture：
+
+| 起点 backbone | 中间改造 | 训练数据 | 终点 |
+|---|---|---|---|
+| **Wan2.2-TI2V-5B**（passive video model，类似 SVD）| frame-level action injection + 多视角 + Shared Attention + IDM | 仿真器 + Cosmos-Transfer 出来的 (real_style_obs, action, real_style_next_obs) | **Uni-WAM**（AC-WM）|
+
+→ **Uni-WAM 在做的事，Ctrl-World 已经做过一遍**（在更小规模上）。Uni-WAM 可以借鉴 Ctrl-World 的工程细节、踩过的坑，**主要差异**：
+- Backbone 换成 Wan2.2（更大、更新）
+- 加 **IDM 反向正则化**
+- 训练数据来源**包含仿真器 off-expert action**（不只靠真机 expert demo）
+
+→ 这也是为什么调研 Ctrl-World 对 Uni-WAM 极有价值 —— **它是同款路径的最近 reference**。
+
+---
+
 ## 3. Ctrl-World 的核心方法 · 一张架构图看懂
 
 ![](../images/figure-02.png)
