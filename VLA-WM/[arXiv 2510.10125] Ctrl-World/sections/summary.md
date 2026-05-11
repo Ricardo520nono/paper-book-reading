@@ -134,27 +134,96 @@ WM 旁边的 **Memory**（绿块）是 Ctrl-World 的关键工程组件 —— *
 
 → **这里就是 action 注入 model 的入口！** 它不是直接拼到 visual token，而是通过 cross-attention 让 visual token 主动 attend 到 pose。
 
-#### 块 4：右侧 Frame-Level Cross-Attention（核心机制 zoom-in）⭐
+#### 块 4：Frame-Level Cross-Attention（核心机制 zoom-in）⭐
 
-右侧那个细节图是**整个 paper 最关键的机制**，把它讲清楚：
+![](../images/figure-02-xattn.png)
+
+这块是 **Ctrl-World 整篇 paper 最关键的机制**，把图里每个元素拆开讲：
+
+##### 4.1 先复习一下：什么是 Cross-Attention？
+
+Attention 三件套（如果忘了可以略读）：
+- **Q (Query)**："我想知道什么？"
+- **K (Key)**："我有什么信息可供查询？"
+- **V (Value)**："信息本身"
+
+普通 cross-attention 流程：每个 Q **去看所有 K**，算相关性得分，再用得分对所有 V 做加权求和 → 得到融合结果。
+
+**这里的角色分配**：
+- **Q（图里上排）= visual tokens**（生成视频的内容）
+- **K, V（图里下排）= pose tokens**（要做的动作）
+
+→ "我（visual token）要长成什么样？我去查（pose token）告诉我该长成什么样"。
+
+##### 4.2 图里两排方块是什么
+
+**上排（Q 端）**：visual tokens，形状 `(B×T, P, C)`
+- **B×T**：batch 维度 × 时间维度（每个 batch 里 T 个 frame）
+- **P**：每帧的 token 数 = N×H×W（多视角 × 空间 patch）
+- **C**：channel 维度
+- 颜色含义：
+  - 🟩 **绿色（4 个）= 历史帧的 visual tokens** $[o_{t-km}, \ldots, o_{t-m}, o_t]$
+  - ⬛ **灰色噪声（3 个）= 未来要预测的 noised visual tokens** $[x_{t'}]$（diffusion 训练时是加了噪声的版本）
+
+**下排（K, V 端）**：pose tokens，形状 `(B×T, 1, C_a)`
+- **B×T**：和上面一样，batch × 时间
+- **1**：⭐ **每帧只有 1 个 pose token**（不是 P 个！）
+- **C_a**：action embedding 维度
+- 颜色含义：
+  - 🟢 **浅绿色（4 个）= 历史真实 pose** $[q_{t-km}, \ldots, q_{t-m}, q_t]$
+  - 🟪 **粉色（3 个）= 未来要去的 action chunk pose** $[a'_{t+1:t+H}]$
+
+##### 4.3 关键发现：上下排 token 数对不上！
+
+注意维度差异：
+
+| 端 | 每帧多少 token？|
+|---|---|
+| 上排（visual）| **P 个**（= N×H×W，比如 3 × 24 × 40 = 2880 个）|
+| 下排（pose）| **1 个** |
+
+→ 也就是说：**第 t 帧的 P 个 visual token，全部"指向"同一个 pose token**。
+
+##### 4.4 ⭐ Frame-Level 的精髓：箭头的含义
+
+图里的双向箭头 **不是**"所有 visual 都连所有 pose" 那种 dense connection，而是**严格的一对一**：
 
 ```
-上方（Query 端）:    [o_{t-km}, ..., o_{t-m}, o_t]  [x_{t'}]
-                      历史 visual tokens          未来 noised tokens
-                      ↕   ↕   ↕   ↕               ↕   ↕   ↕
-                     cross-attention（每对独立）
-                      ↕   ↕   ↕   ↕               ↕   ↕   ↕
-下方（K/V 端）:      [q_{t-km}, ..., q_{t-m}, q_t]  [a'_{t+1:t+H}]
-                      历史真实 pose                未来要去的 pose
+第 t-2m 帧的 P 个 visual token  ←→  只 attend  ←→  第 t-2m 帧的 1 个 pose token
+第 t-m 帧的 P 个 visual token   ←→  只 attend  ←→  第 t-m 帧的 1 个 pose token
+第 t 帧的 P 个 visual token     ←→  只 attend  ←→  第 t 帧的 1 个 pose token
+第 t+1 帧的 P 个 visual token   ←→  只 attend  ←→  第 t+1 帧的 1 个 action pose
+...                               (跨帧 attention 被屏蔽 / mask 掉)
 ```
 
-🔥 **关键点：每一帧的 visual token 只 attend 到 "它自己对应的那一帧 pose"**：
-- 第 t-2m 帧的 visual token → 只看第 t-2m 帧的真实 pose $q_{t-2m}$
-- 第 t+5 帧的 noised visual token → 只看第 t+5 帧的 action pose $a'_{t+5}$
-- 不是"所有 visual tokens 都 attend 整个 pose 序列"
-- 是 **"一帧 visual ↔ 一帧 pose"严格对齐**
+**重点**：第 t 帧的 visual token **看不到** 第 t-1 帧或第 t+1 帧的 pose token！
 
-**这就是 frame-level 的意思** —— 注入的颗粒度是**每一帧**，不是整段。
+##### 4.5 为什么这么设计？(动机)
+
+**问题**：如果用普通 cross-attention（visual token 看所有 pose token），会发生什么？
+
+- 第 5 帧的 visual token 不仅看第 5 帧的 action，还看第 1/2/3/4/6/7... 帧的 action
+- 模型可能"作弊"：看完整段 action 序列后**平均化**，每一帧画一个"平均动作姿态"
+- 结果：visual 和 action 之间**时间对齐被破坏**，高频细节丢失
+
+**Frame-level 强制约束**：第 t 帧的 visual **必须直接对应**第 t 帧的 action
+- → 保证 visual dynamics 和 action 在时间上**严格同步**
+- → 这是 paper §1 ¶3 强调的 "Frame-level action conditioning tightly aligns visual dynamics with control signals" 的实现层面
+
+##### 4.6 算下来到底用了多少参数？
+
+Cross-attention 的计算量：
+- 每个 frame 内，P 个 visual token 各算一次 attention 到 1 个 pose token
+- Attention score 矩阵 = (P, 1) 而不是 (P, T) —— **维度降了一阶**
+- 所以这种 frame-level cross-attention **比 dense 版本便宜很多**
+
+→ Ctrl-World 既保证了时间对齐，又控制了计算量。
+
+##### 4.7 总结一句话
+
+> **Frame-Level Cross-Attention = 让每一帧的视觉 token 只 attend 到该帧的 pose token，强迫 visual 和 action 时间严格对齐**。
+>
+> 这就是 paper §4.1 "frame-level action conditioning" 的工程实现，也是 Zhu et al. 2024 的核心 idea。
 
 ---
 
