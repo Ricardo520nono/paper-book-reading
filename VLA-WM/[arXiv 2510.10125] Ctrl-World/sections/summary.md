@@ -340,6 +340,31 @@ Ctrl-World 验证了它的两个 use case 都**在 ID setting 下 work**：
 | Policy Evaluation | Figure 7：ranking alignment 0.87 / 0.81 | ✅ work（在 expert-quality policy 之间）|
 | Policy Improvement | Figure 9：+44.7% on novel instructions | ✅ work（在 novel instruction / object 上）|
 
+#### 💡 两个实验的逻辑链（不是并列，是先后）
+
+```
+    实验 1（Figure 7）：WM 能不能信？
+                ↓
+          证明 WM 是可靠的 ranker
+                ↓
+    实验 2（Figure 9）：能不能用它做事？
+                ↓
+          证明 WM 是有用的 data source
+```
+
+**直观说**：先证明**工具好用**（步骤 1），再证明**工具有用**（步骤 2）。
+
+这是 ML paper 的**经典两步叙事**：
+- LLM paper：先 benchmark（模型好）→ 再 downstream（有用）
+- Detection paper：先 mAP（准）→ 再下游应用（有用）
+
+#### ⚠️ 但两个实验**互不依赖**
+
+- 即使你不信 Figure 7 的 ranking 精确（实验 1 有 caveat：偏悲观）
+- Figure 9 的 +44.7% 是**真机数据**测出来的 —— 不受 WM 评估精度影响
+
+→ 这两条证据链**互相支撑但独立成立**，paper 的故事在这里闭环。
+
 ---
 
 ### 🔥 Uni-WAM 视角的关键观察
