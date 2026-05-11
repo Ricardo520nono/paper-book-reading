@@ -16,6 +16,7 @@
 | **Pre-training vs Post-training** | 学通识 vs 学品味；架构不变只换数据；起源 LLM 蔓延到所有 foundation model | [pretraining-vs-posttraining.md](pretraining-vs-posttraining.md) |
 | **CLIP** | 把图像和文字嵌入同一向量空间的双编码器；视觉 AI 的通用理解器 | [clip.md](clip.md) |
 | **AC-WM & Action Injection** | action 作为输入的 WM；架构层"能喂"≠ 训练层"能消化"；5 种主流注入方式 | [action-conditioned-wm.md](action-conditioned-wm.md) |
+| **Cross-Attention** | "按需融合的查表机制"；Q 来自一边，K/V 来自另一边；多模态条件控制的标准件 | [cross-attention.md](cross-attention.md) |
 
 ## 待写
 

@@ -142,12 +142,16 @@ WM 旁边的 **Memory**（绿块）是 Ctrl-World 的关键工程组件 —— *
 
 ##### 4.1 先复习一下：什么是 Cross-Attention？
 
-Attention 三件套（如果忘了可以略读）：
-- **Q (Query)**："我想知道什么？"
-- **K (Key)**："我有什么信息可供查询？"
-- **V (Value)**："信息本身"
+> 💡 详细解释见 [`_concepts/cross-attention.md`](../../../_concepts/cross-attention.md)（含图书馆类比 + 3 行数学 + Self vs Cross 区别）
 
-普通 cross-attention 流程：每个 Q **去看所有 K**，算相关性得分，再用得分对所有 V 做加权求和 → 得到融合结果。
+**一句话**：Attention 三件套
+- **Q (Query)**：我想问什么？
+- **K (Key)**：我有什么标题可匹配？
+- **V (Value)**：标题对应的实际内容
+
+流程：每个 Q **去看所有 K** → 算相关性分数 → softmax 成权重 → 对所有 V 做加权求和。
+
+**Cross-Attention** = Q 来自一边，K/V 来自另一边（"自己查别人"，区别于 self-attention 的"自己查自己"）。
 
 **这里的角色分配**：
 - **Q（图里上排）= visual tokens**（生成视频的内容）
