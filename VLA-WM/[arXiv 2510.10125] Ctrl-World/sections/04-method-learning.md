@@ -6,6 +6,38 @@
 
 ---
 
+## 🎯 Figure 2：Ctrl-World 架构图（🌟 全篇最关键的一张图）
+
+![](../images/figure-02.png)
+
+**怎么看这张图（从左到右）**：
+
+**左半部分（输入构造）**：
+- 上排时间轴：稀疏历史帧 $o_{t-km}, ..., o_{t-2m}, o_{t-m}, o_t$ + 未来要预测的 $o_{t+H}$
+- **History Poses + Action Chunk Poses**（蓝绿色块）：历史 pose + 未来 action 转 pose
+- **Spatial Tokens**：每个 frame 拆成 P = N×H×W 个 token（N 个相机视角）
+- **CLIP Semantic Tokens**：用 CLIP 提语义特征作为条件
+
+**中间（Spatial + Temporal Transformer 主干）**：
+- Spatial Transformer：处理空间维度的 token
+- Temporal Transformer：处理时间维度
+- 这两个串起来 × N 次（N 是 transformer block 数）
+
+**右半部分（Frame-Level Cross-Attention）**：
+- 🌟 **这是 Ctrl-World 核心创新**：每一帧的 visual token 通过 cross-attention 关注**该帧对应的 pose embedding**
+- 历史帧 attend 到真实 pose（$q_{t-km}, ..., q_t$）
+- 未来帧 attend 到 action 转换出来的 pose（$a'_{t+1:t+H}$）
+
+🔥🔥 **Uni-WAM 视角下，这张图的关键信息**：
+- **Action 注入位置**：Spatial Transformer 内部的 Frame-Level Cross-Attention
+- **Action 表示**：Cartesian 6D pose（不是 joint angle）
+- **每帧严格对齐**：第 t 帧的 visual token 只 attend 到第 t 帧的 pose
+- **新增模块**：Frame-Level Cross-Attention 是从 SVD backbone 上**新加的**，其他都 inherit
+
+→ 想测 5 类 off-expert action 时，**直接换右边 pose embedding 就行**，架构层完全允许。但**训练数据没见过 → WM 不一定能消化**（这正是 Uni-WAM 要诊断的）。
+
+---
+
 ## ¶1 · 整体目标：从 passive video gen 改造成 controllable AC-WM
 
 > "Our goal is to learn a world model that can be used to evaluate and improve modern VLA policies. To achieve this, the model must first support **multiview observations** that are commonly used by such policies. It is also important for the model to be **controllable — reliably and closely follow the action inputs** — even when initialized from a pre-trained backbone that lacks such control. Finally, the model must **maintain temporal consistency over long horizons**, even in the presence of occlusions, to produce coherent rollouts. We initialize our world model from a pretrained video diffusion backbone with spatial-temporal transformers (Blattmann et al., 2023b) and introduce three key adaptations, illustrated in Figure 2."

@@ -47,6 +47,19 @@ Ctrl-World 把 prior AC-WM 的 limitation 归结为**视角 / 控制粒度 / 长
 
 ---
 
+## 🎯 Figure 1：Ctrl-World 全图（一图看懂整篇 paper）
+
+![](../images/figure-01.png)
+
+**整张图的故事线**：
+1. **左侧 policy-in-the-loop rollout**：Instruction + 3 个相机视角 → Generalist Policy 输出 N-step action chunk → World Model 接收 (obs, action) → 输出 3 个预测视角 + Memory → 循环 ×N 次
+2. **右上 Policy Evaluation**：跑出来的合成 trajectory 用来给 policy 排名（散点图：WM ranking ≈ real ranking，y=0.87x-0.04）
+3. **右下 Policy Improvement**：合成的 successful trajectory 拿来做 SFT，提升 policy 成功率 **+44.7%**
+
+💡 **看这张图就抓住了 Ctrl-World 的全部贡献**：3 个组件（multi-view + memory + action chunk）→ 2 个 use case（eval + improve）。
+
+---
+
 ## ¶3 · Ctrl-World 的 3 个 contribution
 
 > "In this paper, we introduce Ctrl-World, a Controllable, multi-view generative world model designed for policy-in-the-loop interaction, enabling multi-step rollouts entirely within imagination space, as illustrated in Figure 1. Our design relies on three key components:

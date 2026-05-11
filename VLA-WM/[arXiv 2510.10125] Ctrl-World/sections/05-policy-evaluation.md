@@ -53,7 +53,33 @@
 
 ---
 
+## 🎯 Figure 6：Real World vs World Model 定性对比
+
+![](../images/figure-06.png)
+
+**怎么看这张图**：
+- 每行是一个 task：Place blue block / Fold towel / Pull tissue / Wipe table / Close laptop
+- 每行 3 列：**Initial Obs**（黄色边）| **真机 π₀.₅ rollout**（绿色边）| **WM 内 π₀.₅ rollout**（粉色边）
+- 每个 trajectory 包含 20 次 π₀.₅ ↔ Ctrl-World 交互
+
+🔥 **观察**：
+- WM 里的 rollout 在视觉上 **接近真机**（zero-shot 泛化到新 DROID setup）
+- 但**仔细看**：复杂物理交互（如 Close laptop）的细节 WM 有偏差 —— Paper 在 §5.3 prose 里也承认这点
+
+---
+
 ## ¶3 · Quantitative Results (Figure 7)
+
+![](../images/figure-07.png)
+
+**怎么看这张图**：
+- **左图**：Instruction Following（指令跟随率）—— 横轴真机，纵轴 WM
+- **右图**：Success Rate（执行成功率）—— 横轴真机，纵轴 WM
+- 颜色 = policy：蓝色 π₀ / 黄色 π₀-FAST / 绿色 π₀.₅
+- 形状 = task：● Pick-Place / ▲ Fold-Towel / ■ Drawer / ◆ Wipe-table / + Close-laptop / ★ Pull-tissue / × Stack
+- **黑色虚线** = 回归方程；**灰色细线** = oracle（y=x）
+
+**回归方程**：
 
 paper 给出回归方程：
 
