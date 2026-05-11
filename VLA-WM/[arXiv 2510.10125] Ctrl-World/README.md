@@ -87,6 +87,7 @@
 
 | # | Section | 内容 | Uni-WAM 相关性 | 状态 |
 |---|---|---|---|---|
+| - | [**summary.md**](sections/summary.md) | 🌟 **串讲速读**（图+几句话读懂全篇）| 🔥 入口 | 🟡 逐点积累中 |
 | 0 | [00-abstract.md](sections/00-abstract.md) | Abstract | 🔥 必读 | ✅ 完成 |
 | 1 | [01-introduction.md](sections/01-introduction.md) | Introduction：要解决的问题 + Ctrl-World 自己的 pitch | 🔥 必读 | ✅ 完成 |
 | 2.1 | ~~02-related-work-videogen.md~~ | Video Generation Models | 选读 | ⏭️ **跳过** |
