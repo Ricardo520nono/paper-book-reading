@@ -43,14 +43,16 @@
 
 ### 翔哥已填（WM Benchmark 类，参考用）
 
-| 分类 | 工作 | 做了 ✅ | 没做到 ❌ |
-|---|---|---|---|
-| Bench | EWMBench (2025/05) | 三维评估 + HSD/NDTW/DYN 指标 + Agibot 上 7 个模型 | 仅来自训练分布；从未测 random / sub-optimal action |
-| Bench | WorldArena (2026/02) | 感知质量(16) + 功能效用(3) + EWMScore | "可控性"是 T2V 不是数值 action；功能评估仍 ID action |
-| Bench | MIND (2026/02) | 记忆一致性 + action 控制 + 双视角 + action space 泛化 | 不是 robotics 场景 |
-| Bench | ACT-Bench (2024/12) | IEC + TA 指标 | 仅自动驾驶 |
-| Bench | RoboWM-Bench (2026/04) | 视频 → action → sim 执行 + 任务完成率 | 仅评测 WM 生成视频；没考虑数值 AC-WM |
-| Bench | WorldGym (2025/05) | 测了 OOD language + OOD initial image | **没考虑 OOD action** |
+> 每篇做 focused 阅读（只过翔哥点的 ✅/❌），笔记在 `notes/0X-名字/notes.md`
+
+| # | 工作 | 做了 ✅ | 没做到 ❌ | 笔记 |
+|---|---|---|---|---|
+| 01 | EWMBench (2025/05) | 三维评估 + HSD/NDTW/DYN 指标 + Agibot 上 7 个模型 | 仅来自训练分布；从未测 random / sub-optimal action | [✅ 完成](notes/01-EWMBench/notes.md) |
+| 02 | WorldArena (2026/02) | 感知质量(16) + 功能效用(3) + EWMScore | "可控性"是 T2V 不是数值 action；功能评估仍 ID action | [待读](notes/02-WorldArena/) |
+| 03 | MIND (2026/02) | 记忆一致性 + action 控制 + 双视角 + action space 泛化 | 不是 robotics 场景 | [待读](notes/03-MIND/) |
+| 04 | ACT-Bench (2024/12) | IEC + TA 指标 | 仅自动驾驶 | [待读](notes/04-ACT-Bench/) |
+| 05 | RoboWM-Bench (2026/04) | 视频 → action → sim 执行 + 任务完成率 | 仅评测 WM 生成视频；没考虑数值 AC-WM | [待读](notes/05-RoboWM-Bench/) |
+| 06 | WorldGym (2025/05) | 测了 OOD language + OOD initial image | **没考虑 OOD action** | [待读](notes/06-WorldGym/) |
 
 ### Ricardo 待填（AC-WM 模型本身，按分类排序）
 
