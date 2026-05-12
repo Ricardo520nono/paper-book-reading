@@ -152,28 +152,44 @@ Wan paper 流程:                 Uni-WAM 调研流程:
 
 ---
 
-### 通过 Ctrl-World §2.2 Related Work 发现的新候选（2023+，筛掉太老）
+### 通过 Ctrl-World §2.2 Related Work + 实验对照基线 发现的新候选（2023+，筛掉太老）
 
 > 来源：[`VLA-WM/[arXiv 2510.10125] Ctrl-World/sections/02-related-work-acwm.md`](../%5BarXiv%202510.10125%5D%20Ctrl-World/sections/02-related-work-acwm.md)
 
 **🌟 最高优先级**（Ctrl-World method 直接源头）:
-- **Zhu et al. 2024** —— **frame-level action conditioning 起源** ⭐ Ctrl-World 的 action 注入机制就来自这里
-- **He et al. 2025** —— frame-wise cross-attention（Ctrl-World 也直接复用）
+
+| Paper | 作者 / 年 | arXiv | 一句话 / 价值 |
+|---|---|---|---|
+| **IRASim** | Zhu et al. 2024 | [2406.14540](https://arxiv.org/abs/2406.14540) | **frame-level action conditioning 起源** ⭐ Ctrl-World 直接继承 |
+| **Pre-trained Video Generative Models as World Simulators** | He et al. 2025 | [2502.07825](https://arxiv.org/abs/2502.07825) | frame-wise cross-attention（Ctrl-World 复用）|
 
 **Diffusion-based AC-WM**（近期热门方向）:
-- Quevedo et al. 2025
-- Chen et al. 2024
-- Gao et al. 2025
-- Ren et al. 2025
-- Hafner et al. 2025 —— DreamerV3 latest（前几代 V1/V2 是 2019/2020 太老不读，但 V3 2025 值得读）
+
+| Paper | 作者 / 年 | arXiv | 一句话 |
+|---|---|---|---|
+| **WPE**（World-model-based Policy Evaluation）| Quevedo et al. 2025 | [2506.00613](https://arxiv.org/abs/2506.00613) | Ctrl-World §5.2 的对照 baseline，AC-WM policy eval |
+| **Diffusion Forcing** | Chen et al. 2024 | NeurIPS 2024 | next-token + full-sequence diffusion 范式 |
+| **AdaWorld** | Gao et al. 2025 | [2503.18938](https://arxiv.org/abs/2503.18938) | latent action AC-WM |
+| **DreamerV3 latest** | Hafner et al. 2025 | [2509.24527](https://arxiv.org/abs/2509.24527) | DreamerV3 最新版（V1/V2 太老跳过）|
+| ⚠️ **Cosmos-Drive-Dreams** | Ren et al. 2025 | [2506.09042](https://arxiv.org/abs/2506.09042) | **driving 不是 manipulation** —— 优先级降低 |
 
 **其他 AC-WM 候选**（2023+）:
-- Daydreamer (Wu 2023)
-- Wu 2024（同作者后续工作？待查）
-- Yang 2023（可能是 UniSim，待确认）
-- Huang 2025
 
-**Ctrl-World 也引用、但太老不读**（记录在此防止后面又被引出来重复评估）:
+| Paper | 作者 / 年 | 出处 | 一句话 |
+|---|---|---|---|
+| **Daydreamer** | Wu et al. 2023 | CoRL 2023 | 真机 robot 学习的 WM |
+| **iVideoGPT** | Wu et al. 2024 | NeurIPS 2024 | autoregressive interactive video WM |
+| **UniSim** | Yang et al. 2023 | [2310.06114](https://arxiv.org/abs/2310.06114) | 通用 real-world simulator |
+| **Particleformer** | Huang et al. 2025 | [2506.23126](https://arxiv.org/abs/2506.23126) | 3D point cloud WM for manipulation |
+
+**通过 Ctrl-World §5.2 实验对照基线 发现**:
+
+| Paper | 作者 / 年 | arXiv | 一句话 |
+|---|---|---|---|
+| **EnerVerse-AC** | Jiang et al. 2025 | [2505.09723](https://arxiv.org/abs/2505.09723) | Ctrl-World 实验对照之一，envisioning embodied environments with action |
+
+**Ctrl-World 也引用、但太老不读**（记录在此防止后面又被重复评估）:
+
 - ❌ Nagabandi 2020（低维 state space MPC）
 - ❌ DreamerV1 (Hafner 2019) / DreamerV2 (Hafner 2020)
 - ❌ TD-MPC (Hansen 2022)
