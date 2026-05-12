@@ -48,7 +48,8 @@ Genie Envisioner = AgiBot 出品的**统一世界基础模型平台**, 4 件套�
 ├── images/            ← 关键 figure
 │   ├── figure-01.png  ← 全平台 overview (GE-Base + Act + Sim + Bench)
 │   ├── figure-03.png  ← GE-Base 架构 (autoregressive + causal block)
-│   └── figure-07.png  ← GE-Act 3-Stage 训练 pipeline
+│   ├── figure-07.png  ← GE-Act 3-Stage 训练 pipeline
+│   └── figure-14.png  ← GE-Sim action 注入机制 (Pose2Image + Motion Vector)
 └── sections/
     └── summary.md     ← 🌟 3 张图过完全文（**先读这个**）
 ```

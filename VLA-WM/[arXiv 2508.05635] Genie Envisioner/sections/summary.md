@@ -93,6 +93,67 @@
 
 → 严格说 GE-Base 自己**不是 AC-WM**，但**整个平台是**。GE-Base + action condition adapter = GE-Sim = AC-WM。
 
+### Figure 14：GE-Sim 的 action 注入机制（这才是真正的 AC-WM 部分）
+
+![](../images/figure-14.png)
+
+**§5 GE-Sim 是 paper 真正的 AC-WM 部分**，独立成章。核心创新 = **Hierarchical Action-Conditioning Mechanism**（图 a 左侧）。
+
+#### Action 输入（7D × K 步）
+
+每一步 action = **7D vector**：`[x, y, z, roll, pitch, yaw, gripper_openness]`
+- 位置（xyz）+ 朝向（rpy）+ 夹爪状态 = 7D
+- 双臂时拼成 14D（左 7 + 右 7）
+- K 步合在一起 = `A ∈ R^{K × 14}`
+
+#### 两路注入（Pose2Image + Motion Vector）
+
+**第 1 路: Pose2Image Conditioning**（视觉 token 层注入）
+
+每个 timestep i 的 pose `a_i` → 画成 pose image `P_i`:
+1. **位置** (x_i, y_i, z_i) → 用相机内外参 project 到 2D 像素坐标
+2. **朝向** (r_i, p_i, y_i) → 转 rotation matrix, 把三个正交轴 project 到 image plane（指示方向）
+3. **gripper** o_i → 画在 unit circle 上，**颜色深浅代表开合**（淡色 = 开，深色 = 闭）
+4. **左右臂** 用不同色区分
+
+→ pose image `P_i` 和历史帧 `I_i` 都用**同一个 video encoder ε 编码**, 然后**element-wise add**：
+
+$$v_i = \varepsilon(I_i) + \varepsilon(P_i)$$
+
+合成 token `v_i` **作为 visual token 注入 generation stream**。
+
+🔥 **这就是 EnerVerse-AC 的 "Spatial-Aware Pose RGB" 思路** —— **把 6D pose 画成 RGB 图，然后和 obs 图一起编码**。
+
+**第 2 路: Motion Vector Conditioning**（cross-attention 注入）
+
+计算连续 pose 的 delta：
+
+$$\Delta a_i = a_i - a_{i-1} = [\Delta p_i, \Delta r_i]$$
+
+→ 经过 learnable encoder → **和 reference image style token concatenate** → **通过 cross-attention 注入到每个 DiT block**
+
+🔥 **这就是 EnerVerse-AC 的 "Delta Action Cross-Attention" 思路** —— **temporal 动作变化通过 cross-attention 注入**。
+
+#### 训练（§5.2 简略）
+
+- 从 **GE-Base-MR**（high-temporal-resolution variant）初始化
+- 在 **full AgiBot-World-Beta** 上训
+- 用 **ground-truth action trajectories** 做 conditioning input
+- 训练 corpus 加入 **failure cases**（incomplete behaviors, suboptimal control）— 和 EVAC 一脉相承
+
+#### GE-Sim vs EVAC 的关系
+
+| | EnerVerse-AC | **GE-Sim** |
+|---|---|---|
+| Spatial-Aware Pose RGB | ✅ | ✅ Pose2Image Conditioning |
+| Delta Action Cross-Attention | ✅ | ✅ Motion Vector Conditioning |
+| Gripper magnitude RGB | ✅ | ✅（合并在 Pose2Image 里）|
+| Failure data | ✅ 人工 augmented | ✅ AgiBot-World-Beta 含 failure |
+| Backbone | EnerVerse VDM | GE-Base (LTX-Video 2B 或 COSMOS2 2B)|
+| 规模 | 中 | 大（用 GE-Base-MR）|
+
+→ **GE-Sim ≈ EnerVerse-AC 的升级实现** —— 同思路、同两路注入、更大 backbone、更大数据。
+
 ### Figure 7：GE-Act 3-Stage 训练
 
 ![](../images/figure-07.png)
