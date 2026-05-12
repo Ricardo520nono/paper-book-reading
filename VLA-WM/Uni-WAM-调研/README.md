@@ -66,6 +66,13 @@
 | **WorldGym / WPE (2025/06)** | • AC-WM（autoregressive diffusion video gen）<br>• Action 注入方式: chunk-wise bidirectional attention + causal cross-chunk（16 帧 chunk）<br>• 用 VLM（GPT-4o）作 reward model 自动判 success<br>• 测 3 个 VLA（RT-1-X / Octo / OpenVLA）在 Bridge / Open X-Embodiment 上, 真机 vs WM 成功率相关性 r=0.78<br>• 能改 image / 改 language 测 OOD generalization | • 没考虑 OOD action（OOD 维度只在 image 和 language）<br>• 训练数据是真机 expert demo（Bridge）, 未覆盖 off-expert action<br>• 方法贡献偏弱, 主要是 evaluation framework 整合 | [📄 summary](../%5BarXiv%202506.00613%5D%20WPE/sections/summary.md) | 可能与翔哥已填 "WorldGym (2025/05)" 是同一篇<br>Ctrl-World §5.2 baseline |
 | Motus | _(待填, 跳过 - 翔哥已知)_ | _(跳过)_ | arXiv 2512.13030 | 梦飞已找到<br>翔哥已知, 跳过 |
 
+#### 分类 b：WM 但开源提供 AC-WM finetune
+
+| 工作 | 做了 ✅ | 没做到 ❌ | 链接 | 备注 |
+|---|---|---|---|---|
+| Cosmos-Predict 2.5 | _(待填, 跳过 - 翔哥已知)_ | _(跳过)_ | _(待补)_ | 翔哥已知, 跳过 |
+| DreamZero | _(待调研)_ | _(待调研)_ | NVIDIA, 14B World Action Model | Wan 待读清单 |
+
 #### 分类 c：WM 开源但无 AC-WM
 
 | 工作 | 做了 ✅ | 没做到 ❌ | 链接 | 备注 |
