@@ -365,55 +365,208 @@ Figure 1 底部把 EWMBench 拆成三块:
 
 → 严格说 GE-Base 自己**不是 AC-WM**，但**整个平台是**。GE-Base + action condition adapter = GE-Sim = AC-WM。
 
-### Figure 14：GE-Sim 的 action 注入机制（这才是真正的 AC-WM 部分）
+### Figure 14：GE-Sim 的 action 注入机制（详细带读版）
 
 ![](../images/figure-14.png)
 
-**§5 GE-Sim 是 paper 真正的 AC-WM 部分**，独立成章。核心创新 = **Hierarchical Action-Conditioning Mechanism**（图 a 左侧）。
+**§5 GE-Sim 是 paper 真正的 AC-WM 部分**，独立成章。Figure 14 是 GE-Sim 整章的"招牌图"，分两个 panel：
+- **(a) Action-conditioned GE-Sim Framework** —— 怎么把外部 action 注入 GE-Base（核心）
+- **(b) Simulator and Data Engine** —— 训完后两大用途
 
-#### Action 输入（7D × K 步）
+---
 
-每一步 action = **7D vector**：`[x, y, z, roll, pitch, yaw, gripper_openness]`
-- 位置（xyz）+ 朝向（rpy）+ 夹爪状态 = 7D
-- 双臂时拼成 14D（左 7 + 右 7）
-- K 步合在一起 = `A ∈ R^{K × 14}`
+#### 14(a) Framework：三路输入流汇入 GE-Sim
 
-#### 两路注入（Pose2Image + Motion Vector）
+GE-Sim 的本质是 **GE-Base 的 action-conditioned 改造版**。看图 (a)，GE-Sim 主干（白色大方块）左边**三路输入流并行**：
 
-**第 1 路: Pose2Image Conditioning**（视觉 token 层注入）
+```
+┌─────────────────────────────────────────────────┐
+│ ① 顶路：reference image → CLIP        (风格锚) │
+│              ↓                                   │
+│ ② 中路：motion condition → Enc → Action Cond   │
+│      (动作 delta 编码)                           │
+│              ↓                                   │
+│ ③ 底路：pose2image + 历史帧 → VAE → Visual Cond│
+│      (动作的"空间形状" + 当下场景)               │
+└─────────────────────────────────────────────────┘
+                    ↓ (三路合流)
+                  GE-Sim
+                    ↓
+              Video Decoder
+                    ↓
+             生成的未来视频
+```
 
-每个 timestep i 的 pose `a_i` → 画成 pose image `P_i`:
-1. **位置** (x_i, y_i, z_i) → 用相机内外参 project 到 2D 像素坐标
-2. **朝向** (r_i, p_i, y_i) → 转 rotation matrix, 把三个正交轴 project 到 image plane（指示方向）
-3. **gripper** o_i → 画在 unit circle 上，**颜色深浅代表开合**（淡色 = 开，深色 = 闭）
-4. **左右臂** 用不同色区分
+**为什么是"三路"而不是"一路"** —— 一个 action 同时被"分解"成空间和时间两个维度去喂，再加一个风格锚：
 
-→ pose image `P_i` 和历史帧 `I_i` 都用**同一个 video encoder ε 编码**, 然后**element-wise add**：
+| 路 | 编码 action 的什么角度 | 用什么形式 | 注入位置 |
+|---|---|---|---|
+| **底路** Pose2Image | **"空间"角度**：这一帧机器人**在哪、怎么摆**（末端位姿） | 把 7D pose 渲染成 RGB 图，跟历史帧用同一个 VAE 编 | **拼进视觉 token 主序列**（visual condition）|
+| **中路** Motion Vector | **"时间"角度**：相邻两帧 action **变化了多少**（delta） | delta 向量过 encoder | 通过 **cross-attention** 从旁边注入 |
+| **顶路** Reference Image | **"风格"角度**（不是 action，是稳定基准） | 一张参考图过 CLIP | 帮中路保持视觉风格一致 |
+
+> 💡 **核心直觉**：**底路告诉模型"姿势长什么样"，中路告诉模型"姿势在怎么变"，顶路告诉模型"画风别跑偏"**。
+
+---
+
+#### 底路 Pose2Image —— 把数字 action 画成图
+
+**核心矛盾**：GE-Sim 收到的 action 是一串**数字**（7D 向量），但 GE-Base 是个**视频扩散模型**，它的语言是 patch token / 视觉 latent。底路的答案是：**别让模型学着读数字，直接把动作"画成一张图"，然后用 GE-Base 自带的 video VAE encoder 编码** —— 不增加新模块，完美复用现有能力。
+
+**Step 1：理解 7D pose 装了什么**
+
+```
+a_i = [x, y, z,    roll, pitch, yaw,    gripper]
+       └─位置─┘    └─── 朝向 ────┘    └─夹爪开合─┘
+       (在哪)         (怎么转)            (张多大)
+```
+- 前 3 维：末端的 3D 位置
+- 中 3 维：末端的 3D 朝向（欧拉角）
+- 最后 1 维：夹爪开合度 ∈ [0, 1]
+- 双臂时拼成 14 维（左 7 + 右 7）
+
+**Step 2：`project` —— 把 7D 数字画成 pose image**
+
+每一帧 action `a_i` 渲染成一张 RGB 图 `P_i`，三件事画在一起：
+
+1. **位置（xyz）→ 在图上点一个点** —— 用相机内外参把 3D 世界坐标 `(x,y,z)` 投影到 2D 图像坐标 `(u,v)`
+2. **朝向（rpy）→ 画三根方向轴** —— 欧拉角转 3×3 旋转矩阵 → 三列正好是末端坐标系的三个正交轴 → 投影到图像平面 → 从①的位置画三根带颜色的小线段（看上去就像 3D 软件里物体上那个"小三角箭头"）
+3. **夹爪开合 → 用颜色深浅** —— 在末端位置画一个单位圆，**颜色深浅代表开合程度**（淡色=张开，深色=闭合）
+4. **双臂任务时左右臂用不同颜色区分**
+
+K 步 action 就画成 K 张 pose 图 `[P_1, P_2, ..., P_K]`（图里底路上方那串小图）。
+
+**Step 3：VAE encoder —— 用 GE-Base 自带的眼睛去看 pose 图**
+
+关键的"免费午餐"：**pose image 和历史帧用同一个 VAE encoder**。
+
+```
+历史帧 I_i    ──→ VAE encoder ──→ latent ε(I_i)
+pose 图 P_i  ──→ 同一个 VAE encoder ──→ latent ε(P_i)
+```
+
+为什么这是"免费午餐"？
+- GE-Base 已经训好了 video VAE encoder，**不用为 action 单独训一个**。
+- pose image 本质就是 RGB 图，VAE 一样能编码。
+- 让"动作的视觉表达"和"画面的视觉表达"**进了同一个 latent 空间** —— 后面才能直接做加法融合。
+
+**Step 4：⊕ Element-wise Add（逐元素相加）融合**
 
 $$v_i = \varepsilon(I_i) + \varepsilon(P_i)$$
 
-合成 token `v_i` **作为 visual token 注入 generation stream**。
+为什么是加法？**简单、零参数**；维度一样保留信息；**可叠加多个条件**。融合后的 `v_i` 就是图里的 **visual condition**，作为视觉 token 直接进 GE-Sim 主序列，和噪声 token 一起被去噪。
 
-🔥 **这就是 EnerVerse-AC 的 "Spatial-Aware Pose RGB" 思路** —— **把 6D pose 画成 RGB 图，然后和 obs 图一起编码**。
+**底路一句话钉死**：
+> 底路 Pose2Image = 把 7D 数字 action **渲染成 RGB pose 图 → 用 GE-Base 自带 VAE 编 latent → 和同时刻历史帧 latent 逐元素相加 → 作为 visual condition 喂进 GE-Sim**。
+> 核心哲学：**不让模型读数字，把动作变成图像、复用现成 encoder、用相加做无参数融合**。
 
-**第 2 路: Motion Vector Conditioning**（cross-attention 注入）
+---
 
-计算连续 pose 的 delta：
+#### 中路 Motion Vector —— 编码"动作怎么变"，用 cross-attention 注入
 
-$$\Delta a_i = a_i - a_{i-1} = [\Delta p_i, \Delta r_i]$$
+底路解决了"动作的**空间**"（这一帧姿势在哪），但还有件事没传达：**两帧之间动了多快、往哪动**。这就是中路要补的"**时间**"维度。
 
-→ 经过 learnable encoder → **和 reference image style token concatenate** → **通过 cross-attention 注入到每个 DiT block**
+> 类比：底路像 GPS 上的"小红点"告诉你现在在哪；中路像速度计 + 方向盘告诉你正在往哪去、动得多快。
 
-🔥 **这就是 EnerVerse-AC 的 "Delta Action Cross-Attention" 思路** —— **temporal 动作变化通过 cross-attention 注入**。
+**Step 1：Δ delta —— 算相邻两帧的"变化量"**
 
-#### 训练（§5.2 简略）
+```
+原始 action:  a_1, a_2, a_3, ..., a_K
+            ↓ 计算相邻差
+delta:        Δa_i = a_i - a_{i-1}    (也是 7D，但含义变了)
+```
 
-- 从 **GE-Base-MR**（high-temporal-resolution variant）初始化
-- 在 **full AgiBot-World-Beta** 上训
-- 用 **ground-truth action trajectories** 做 conditioning input
-- 训练 corpus 加入 **failure cases**（incomplete behaviors, suboptimal control）— 和 EVAC 一脉相承
+含义不再是"在哪"，而是"**位置变了多少、朝向转了多少、夹爪变了多少**"。
 
-#### GE-Sim vs EVAC 的关系
+为什么用 delta 而不是 absolute？
+- **聚焦"运动"** —— 绝对位置底路已经传达了
+- **数值范围小、模型好学** —— 相邻动作变化不大，delta 接近 0
+- **位置不变性** —— 学到的是动作模式，不是具体坐标
+
+**Step 2：Enc —— 把 delta 序列编成 motion token**
+
+delta 序列过一个**可学习的小 encoder**（通常是几层 MLP 或小 transformer），把每个 delta 映射成高维 token：`Δa_i → m_i`。这串 motion token 就是图里 **Action Condition** 那一栏。
+
+**Step 3：和顶路 reference image 拼起来（风格锚）**
+
+motion tokens 出来后，**和顶路 reference image 经 CLIP 编出来的 style token concatenate**。
+
+为什么要拼上 reference image？
+- Motion tokens 只编码"动作变化"，**完全不含视觉风格信息**
+- 如果只拿 motion tokens 喂进去，cross-attention 时模型容易"被动作信息拉走"，画风可能漂移
+- 拼上一个 style token 当**风格基准**，让 cross-attention 时模型既看动作又瞥风格
+
+> 类比：你跟画师说"画我家狗在跑"，同时塞一张"我家狗"的参考照 → 画师知道画的是金毛，不会画成二哈。
+
+**Step 4：Cross-attention 注入 GE-Sim 每一层**
+
+回忆 DiT 里讲过的 cross-attention：**主干 token（Q）主动"看" 外部条件序列（K, V），按相关性吸取信息**。
+
+在 GE-Sim 这里：
+- **Q** = 主干视频 token（正在被去噪）
+- **K, V** = `motion token + reference image style token`
+- 每个 GE-Sim block 加一层 cross-attention，让主干**主动"查询"动作变化信息**
+
+---
+
+#### 两路注入的设计哲学对比（精髓）
+
+| | 底路 Pose2Image | 中路 Motion Vector |
+|---|---|---|
+| 编码什么 | **空间**（姿势在哪） | **时间**（姿势怎么变） |
+| 编码形式 | 渲染成 RGB 图 | delta 数字 → encoder token |
+| 注入方式 | **逐元素加（⊕）** | **Cross-attention** |
+| 为什么这样 | pose 图和帧图**严格空间对齐**（同一像素对应同一物理点），加法直接融合最自然 | 动作变化**不是空间对齐**的（是时间序列），cross-attention 更灵活地让主干"按需查询" |
+| 类比 | 把两张透明胶片**叠在一起**（空间对齐） | 主干随时"翻字典查动作"（灵活查询） |
+
+> 💡 **一句话**：**底路是"空间对齐的图层叠加"，中路是"灵活的查询机制"** —— 两种注入方式各自匹配它要传递的信息特性。设计非常考究。
+
+---
+
+#### 14(b) Simulator and Data Engine：训完后两大用途
+
+**① Simulator（闭环仿真，虚拟真机）**
+
+```
+Instruction ──→ Policy Model
+                    │ Act
+                    ▼
+                  GE-Sim
+                    │ Generate(下一段视频)
+                    ▼
+                 视频画面 ──→ 回到 Policy Model 看
+```
+
+**用途**：虚拟评估 policy。任何外部 policy 接进 GE-Sim 跑几百次任务、统计成功率，不用真机。
+
+> ⚠️ **这是 Uni-WAM proposal 要拷打的最大场景**：GE-Sim 当虚拟真机的可信度，完全取决于"WM 在 policy 出的各种 action 下生成视频是否真实"。policy 是 expert 时可能还行，policy 是 sub-optimal 菜鸟时，GE-Sim 在 off-expert action 上还能信吗？**没人系统验证过 —— 这正是 Action Following Fidelity benchmark 要补的洞**。
+
+**② Data Engine（可控数据工厂）**
+
+```
+Visual Env(初始场景) + Initialization
+            │
+            ▼
+         GE-Sim
+            │
+            ▼
+   Augment Trajectory(给一段动作) → Generate video
+            │
+            ▼
+   合成 (obs, action, video) 三元组 → 喂下游 policy 训练
+```
+
+**用途**：合成训练数据扩充下游 policy 训练集。
+
+> 💡 这条线和**你 proposal 第 ③ 条解决方案是同源思路** —— 你设想的是"仿真器采 off-expert action → Cosmos-Transfer 风格迁移 → 喂下游训练"；GE 这边的 Data Engine 是"用 GE-Sim 直接生成视频 → 喂下游训练"。**两者本质都是 WM-as-data-engine**，只不过你用真仿真器 + 视觉迁移，GE 用神经仿真器一步到位。
+
+---
+
+#### Figure 14 一句话钉死
+
+> Figure 14 = **(a) GE-Sim 怎么造**（三路输入：Pose2Image 空间 + Motion Vector 时间 + Reference Image 风格 → 共享 GE-Base 主干扩散）+ **(b) 怎么用**（虚拟真机做闭环 policy 评估 + 数据工厂生成合成数据）。
+
+#### GE-Sim vs EnerVerse-AC（同团队前作的对比）
 
 | | EnerVerse-AC | **GE-Sim** |
 |---|---|---|
@@ -425,6 +578,20 @@ $$\Delta a_i = a_i - a_{i-1} = [\Delta p_i, \Delta r_i]$$
 | 规模 | 中 | 大（用 GE-Base-MR）|
 
 → **GE-Sim ≈ EnerVerse-AC 的升级实现** —— 同思路、同两路注入、更大 backbone、更大数据。
+
+#### 训练（§5.2 简略）
+
+- 从 **GE-Base-MR**（high-temporal-resolution variant）初始化
+- 在 **full AgiBot-World-Beta** 上训
+- 用 **ground-truth action trajectories** 做 conditioning input
+- 训练 corpus 加入 **failure cases**（incomplete behaviors, suboptimal control）— 和 EVAC 一脉相承
+
+#### 对 Uni-WAM proposal 的直接借鉴（关键三点）
+
+1. **"action 画成图"是一个被反复验证有效的范式** —— EA-WM（KVAFs）、Action Images、GE-Sim 都走这条路。核心优势是绕开"模型读不懂数字"的难题，把动作变成 backbone 天然擅长处理的视觉。
+2. **共享 VAE encoder 是个零成本招** —— Uni-WAM 用 Wan2.2-TI2V-5B 时，**它的 VAE 也能直接复用**，不用单独训 action encoder。
+3. **"空间 + 时间"分双路注入是个稳健配方** —— GE-Sim 不押宝单一注入方式，而是用两种互补机制覆盖动作的两个维度。Uni-WAM 设计 action 注入时**可以考虑也做双路**：空间对齐的条件用加法，时序/语义类条件用 cross-attention。
+4. **Reference image 当风格锚的小技巧** —— 任何 cross-attention 注入条件时，如果担心风格漂移，**配一个风格锚 token 一起注入**是个低成本兜底。
 
 ### Figure 7：GE-Act 3-Stage 训练
 
